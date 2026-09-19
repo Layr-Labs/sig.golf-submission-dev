@@ -1,0 +1,43 @@
+name: Verify an ots.golf track
+on:
+  workflow_call:
+    inputs:
+      track:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    # Provision using the pinned contract's service/deploy/README.md.
+    # Use a fresh runner for each job; this label is not the live web server.
+    runs-on: [self-hosted, linux, x64, ots-verifier]
+    timeout-minutes: 90
+    env:
+      OTS_WORK_DIR: /var/lib/ots-work
+    steps:
+      - name: Checkout dispatched commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - name: Setup benchmark
+        run: bash .yukon/setup.sh
+      - name: Benchmark
+        env:
+          TRACK: ${{ inputs.track }}
+        run: python3 .yukon/run.py "$TRACK"
+      - name: Upload score
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: score-${{ inputs.track }}
+          path: benchmark-results/${{ inputs.track }}/score.json
+          if-no-files-found: error
+      - name: Upload verdict
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: verdict-${{ inputs.track }}
+          path: benchmark-results/${{ inputs.track }}/verdict.json
+          if-no-files-found: ignore

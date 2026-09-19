@@ -1,0 +1,10 @@
+name: ots.golf lower-generality-1
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    uses: ./.github/workflows/benchmark-track.yml
+    with:
+      track: lower-generality-1
