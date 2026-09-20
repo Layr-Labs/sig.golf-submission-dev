@@ -28,7 +28,4 @@ sudo -u ots -H bash -euo pipefail <<'SETUP'
 curl --fail --location --retry 3 https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh \
   -o /srv/ots/elan-init.sh
 sh /srv/ots/elan-init.sh -y --default-toolchain none
-bash .yukon/setup.sh
-export OTS_WORK_DIR=/var/lib/ots-work TMPDIR=/var/lib/ots-work
-python3 .contract/verifier/check_linux_sandbox.py
 SETUP

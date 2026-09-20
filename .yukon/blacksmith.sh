@@ -62,6 +62,17 @@ CLOUD
   setup)
     guest 'sudo bash /srv/ots-benchmark/.yukon/vm-setup.sh'
     ;;
+  tools)
+    # shellcheck disable=SC2016 # Expand HOME and PATH inside the guest user shell.
+    guest 'cd /srv/ots-benchmark && sudo -u ots -H bash -c "export PATH=\"\$HOME/.elan/bin:\$PATH\"; python3 .contract/verifier/pin_contract.py check --root .contract && bash .contract/verifier/setup_tools.sh"'
+    ;;
+  contract)
+    # shellcheck disable=SC2016
+    guest 'cd /srv/ots-benchmark/.contract/formal && sudo -u ots -H bash -c "export PATH=\"\$HOME/.elan/bin:\$PATH\"; lake exe cache get && lake build OptimalOTS"'
+    ;;
+  probe)
+    guest 'cd /srv/ots-benchmark && sudo -u ots -H env OTS_WORK_DIR=/var/lib/ots-work TMPDIR=/var/lib/ots-work python3 .contract/verifier/check_linux_sandbox.py'
+    ;;
   run)
     track="${2:?track required}"
     # Only manifest track names can enter the remote shell command.
@@ -80,5 +91,5 @@ CLOUD
   stop)
     if [[ -f "${vm}/qemu.pid" ]]; then sudo kill "$(sudo cat "${vm}/qemu.pid")"; fi
     ;;
-  *) echo 'Usage: blacksmith.sh start | setup | run TRACK | collect | stop' >&2; exit 2 ;;
+  *) echo 'Usage: blacksmith.sh start | setup | tools | contract | probe | run TRACK | collect | stop' >&2; exit 2 ;;
 esac

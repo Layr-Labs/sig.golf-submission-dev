@@ -20,8 +20,14 @@ jobs:
           persist-credentials: false
       - name: Start verifier VM
         run: bash .yukon/blacksmith.sh start
-      - name: Setup benchmark
+      - name: Prepare verifier environment
         run: bash .yukon/blacksmith.sh setup
+      - name: Build pinned verifier tools
+        run: bash .yukon/blacksmith.sh tools
+      - name: Build pinned contract
+        run: bash .yukon/blacksmith.sh contract
+      - name: Check Linux isolation
+        run: bash .yukon/blacksmith.sh probe
       - name: Benchmark
         env:
           TRACK: ${{ inputs.track }}
