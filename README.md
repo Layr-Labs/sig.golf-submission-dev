@@ -54,7 +54,7 @@ track by dispatching its `benchmark-<track>.yml` workflow; all five call one sha
 All five tracks run on `blacksmith-32vcpu-ubuntu-2404` (32 vCPUs, 128 GB RAM).
 Enable the Blacksmith GitHub App for this repository. The runner's native kernel lacks
 Landlock and its systemd is too old for the pinned verifier, so `.yukon/blacksmith.sh`
-boots a checksum-pinned Ubuntu 26.04 guest using nested KVM, with 28 vCPUs, 80 GiB RAM
+boots a checksum-pinned Ubuntu 26.04 guest using nested KVM, with 24 vCPUs, 64 GiB RAM
 and a separate, fully allocated 48 GiB work disk. Setup installs the pinned proof tools
 and runs the official Linux isolation probe before compiling a submission. Verification
 runs as an unprivileged guest user under the contract's original limits. The guest is

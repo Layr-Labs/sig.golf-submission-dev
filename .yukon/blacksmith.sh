@@ -41,7 +41,7 @@ packages:
 CLOUD
     printf 'instance-id: ots-verifier\nlocal-hostname: ots-verifier\n' > "${vm}/meta-data"
     cloud-localds "${vm}/seed.img" "${vm}/user-data" "${vm}/meta-data"
-    sudo qemu-system-x86_64 -accel kvm -cpu host -smp 28 -m 80G \
+    sudo qemu-system-x86_64 -accel kvm -cpu host -smp 24 -m 64G \
       -drive "file=${vm}/root.qcow2,if=virtio,format=qcow2" \
       -drive "file=${vm}/work.raw,if=virtio,format=raw,cache=none" \
       -drive "file=${vm}/seed.img,if=virtio,format=raw,readonly=on" \
