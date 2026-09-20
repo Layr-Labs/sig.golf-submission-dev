@@ -11,7 +11,7 @@ ssh_args=(-i "${vm}/key" -p 2222 -o BatchMode=yes -o ConnectTimeout=5
 guest() { ssh "${ssh_args[@]}" ubuntu@127.0.0.1 "$@"; }
 
 case "${1:-}" in
-  setup)
+  start)
     test -c /dev/kvm || { echo 'Blacksmith x64 nested KVM is required' >&2; exit 1; }
     sudo apt-get update -qq
     sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
@@ -58,6 +58,8 @@ CLOUD
     # Credentials were removed by checkout; only the checkout enters the VM.
     tar --exclude='./benchmark-results' -cf - . | \
       guest 'sudo mkdir -p /srv/ots-benchmark && sudo tar -xf - -C /srv/ots-benchmark'
+    ;;
+  setup)
     guest 'sudo bash /srv/ots-benchmark/.yukon/vm-setup.sh'
     ;;
   run)
@@ -78,5 +80,5 @@ CLOUD
   stop)
     if [[ -f "${vm}/qemu.pid" ]]; then sudo kill "$(sudo cat "${vm}/qemu.pid")"; fi
     ;;
-  *) echo 'Usage: blacksmith.sh setup | run TRACK | collect | stop' >&2; exit 2 ;;
+  *) echo 'Usage: blacksmith.sh start | setup | run TRACK | collect | stop' >&2; exit 2 ;;
 esac

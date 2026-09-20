@@ -18,6 +18,8 @@ jobs:
           ref: ${{ github.sha }}
           submodules: recursive
           persist-credentials: false
+      - name: Start verifier VM
+        run: bash .yukon/blacksmith.sh start
       - name: Setup benchmark
         run: bash .yukon/blacksmith.sh setup
       - name: Benchmark
