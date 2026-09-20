@@ -6,7 +6,8 @@ systemctl --version
 cat /sys/kernel/security/lsm
 test "$(systemctl --version | head -1 | awk '{print $2}')" -ge 257
 grep -qw landlock /sys/kernel/security/lsm
-useradd --create-home --shell /bin/bash ots
+# ProtectSystem=strict excludes /home; keep the judge home under /srv, as upstream does.
+useradd --create-home --home-dir /srv/ots --shell /bin/bash ots
 chown -R ots:ots /srv/ots-benchmark
 mkdir /var/lib/ots-work
 mkfs.ext4 -q -F -m 0 -E nodiscard,lazy_itable_init=0,lazy_journal_init=0 /dev/vdb
@@ -25,8 +26,8 @@ APPARMOR
 apparmor_parser -r /etc/apparmor.d/ots-systemd-executor
 sudo -u ots -H bash -euo pipefail <<'SETUP'
 curl --fail --location --retry 3 https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh \
-  -o /home/ots/elan-init.sh
-sh /home/ots/elan-init.sh -y --default-toolchain none
+  -o /srv/ots/elan-init.sh
+sh /srv/ots/elan-init.sh -y --default-toolchain none
 bash .yukon/setup.sh
 export OTS_WORK_DIR=/var/lib/ots-work TMPDIR=/var/lib/ots-work
 python3 .contract/verifier/check_linux_sandbox.py
