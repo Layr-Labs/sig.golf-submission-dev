@@ -4,7 +4,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 vm="${RUNNER_TEMP:?This entry point runs in GitHub Actions}/ots-verifier-vm"
 ssh_args=(-i "${vm}/key" -p 2222 -o BatchMode=yes -o ConnectTimeout=5
+  -o ServerAliveInterval=15 -o ServerAliveCountMax=4
   -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${vm}/known_hosts")
+# Callers supply fixed commands; the only variable command argument is allowlisted below.
+# shellcheck disable=SC2029
 guest() { ssh "${ssh_args[@]}" ubuntu@127.0.0.1 "$@"; }
 
 case "${1:-}" in
@@ -46,11 +49,11 @@ CLOUD
       -display none -serial "file:${vm}/console.log" -monitor none \
       -daemonize -pidfile "${vm}/qemu.pid"
     ready=0
-    for attempt in $(seq 1 120); do
+    for ((attempt=0; attempt<120; attempt++)); do
       if guest true 2>/dev/null; then ready=1; break; fi
       sleep 2
     done
-    if [[ "${ready}" != 1 ]]; then cat "${vm}/console.log"; exit 1; fi
+    if [[ "${ready}" != 1 ]]; then sudo cat "${vm}/console.log"; exit 1; fi
     guest 'sudo cloud-init status --wait'
     # Credentials were removed by checkout; only the checkout enters the VM.
     tar --exclude='./benchmark-results' -cf - . | \
@@ -69,11 +72,11 @@ CLOUD
   collect)
     mkdir -p benchmark-results
     if [[ -f "${vm}/qemu.pid" ]]; then
-      guest 'sudo tar -C /srv/ots-benchmark/benchmark-results -cf - .' | tar -xf - -C benchmark-results
+      guest 'sudo mkdir -p /srv/ots-benchmark/benchmark-results && sudo tar -C /srv/ots-benchmark/benchmark-results -cf - .' | tar -xf - -C benchmark-results
     fi
     ;;
   stop)
-    if [[ -f "${vm}/qemu.pid" ]]; then sudo kill "$(cat "${vm}/qemu.pid")"; fi
+    if [[ -f "${vm}/qemu.pid" ]]; then sudo kill "$(sudo cat "${vm}/qemu.pid")"; fi
     ;;
   *) echo 'Usage: blacksmith.sh setup | run TRACK | collect | stop' >&2; exit 2 ;;
 esac

@@ -2,9 +2,9 @@
 # Trusted bootstrap in the fresh Ubuntu 26.04 guest, before any proof is compiled.
 set -euo pipefail
 cd /srv/ots-benchmark
-systemd --version
+systemctl --version
 cat /sys/kernel/security/lsm
-test "$(systemd --version | head -1 | awk '{print $2}')" -ge 257
+test "$(systemctl --version | head -1 | awk '{print $2}')" -ge 257
 grep -qw landlock /sys/kernel/security/lsm
 useradd --create-home --shell /bin/bash ots
 chown -R ots:ots /srv/ots-benchmark
