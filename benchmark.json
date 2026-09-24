@@ -1,15 +1,15 @@
 {
   "schemaVersion": 2,
-  "name": "sig-golf-diagnostic",
+  "name": "sig-golf",
   "tracks": [
     {
       "name": "full",
-      "description": "Diagnostic Lean-verified signature size × verification work. Product-only ranking; not deployment eligibility.",
+      "description": "Minimize signature bytes × RISC-V verification cycles for a Lean-certified stateless signature scheme under the pinned beta contract.",
       "category": "cryptography",
       "direction": "-",
       "promotionMode": "manual",
       "editablePaths": [
-        "formal/Submissions/Full"
+        "submission"
       ],
       "setupCommand": [
         "bash",
@@ -20,7 +20,7 @@
         "scripts/run.py"
       ],
       "scorePath": "scripts/score.json",
-      "maxSubmissionBytes": 10485760,
+      "maxSubmissionBytes": 16777216,
       "runner": {
         "provider": "github-actions",
         "workflow": "benchmark.yml",

@@ -7,7 +7,7 @@ jobs:
   benchmark:
     # 32 GB RAM leaves headroom above the verifier's 24 GiB ceiling.
     runs-on: blacksmith-8vcpu-ubuntu-2404
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -24,13 +24,12 @@ jobs:
           export XDG_RUNTIME_DIR
           echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
           systemd-run --user --wait --pipe true
-          python3 -c 'import sys; sys.path.insert(0, ".contract/verifier"); from sandbox_profile import landlock_abi; print("Landlock ABI:", landlock_abi())'
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: cache
         with:
           path: |
             ~/.elan
-            .contract/formal/.lake
+            .contract/.lake
             .contract/verifier/.tools
           key: verifier-blacksmith-ubuntu24-${{ runner.arch }}-${{ steps.host.outputs.contract }}-${{ hashFiles('scripts/setup.sh') }}-v2
       - name: Setup
@@ -44,7 +43,7 @@ jobs:
         with:
           path: |
             ~/.elan
-            .contract/formal/.lake
+            .contract/.lake
             .contract/verifier/.tools
           key: ${{ steps.cache.outputs.cache-primary-key }}
       - name: Benchmark
@@ -55,3 +54,11 @@ jobs:
           path: scripts/score.json
           include-hidden-files: true
           if-no-files-found: error
+      - name: Upload verifier logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verifier-logs
+          path: .work/*/verify.log
+          include-hidden-files: true
+          if-no-files-found: ignore

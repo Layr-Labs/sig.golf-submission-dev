@@ -1,0 +1,14 @@
+{
+  "sourceRepository": "https://github.com/leanEthereum/sig.golf-submissions",
+  "sourceCommit": "7fdbf04354520ade6ea451d7f36871011bd4e144",
+  "registryCommit": "056c108a6810931ebe3c97b7491dc3a99581fb80",
+  "sourcePath": "verified/7fdbf04354520ade6ea451d7f36871011bd4e144",
+  "pullRequest": "https://github.com/leanEthereum/sig.golf-submissions/pull/19",
+  "contractCommit": "05c5af7a7020e5104eb37b420dc87139f37f0e4b",
+  "verifiedAt": "2026-09-24T16:40:22Z",
+  "signatureBytes": 119632,
+  "witnessBytes": 119632,
+  "verificationCycles": 5617758,
+  "score": 672063625056,
+  "note": "Upstream verification record; not a local verification. Presentation files are excluded from the admitted submission."
+}
