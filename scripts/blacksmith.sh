@@ -76,7 +76,7 @@ CLOUD
     ;;
   collect)
     if [[ -f "${vm}/qemu.pid" ]]; then
-      sudo cp "${vm}/console.log" .work-vm-console.log
+      sudo cat "${vm}/console.log" | tee .work-vm-console.log >/dev/null
       guest 'cd /srv/sig-benchmark && sudo mkdir -p .work && sudo find scripts .work -type f \( -name score.json -o -name verify.log \) -print0 | sudo tar --null -T - -cf -' | tar -xf -
     fi
     ;;
