@@ -2,3 +2,5 @@ __pycache__/
 .work/
 scripts/score.json
 scripts/score.tmp
+.cache/
+.work-vm-console.log

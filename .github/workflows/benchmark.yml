@@ -5,8 +5,8 @@ permissions:
   contents: read
 jobs:
   benchmark:
-    # 32 GB RAM leaves headroom above the verifier's 24 GiB ceiling.
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    # 64 GB host: 32 GB for the isolated verifier VM, with host headroom.
+    runs-on: blacksmith-16vcpu-ubuntu-2404
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -14,40 +14,34 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           submodules: recursive
-      - name: Prepare sandbox host
+      - name: Identify contract
         id: host
         run: |
           echo "contract=$(git -C .contract rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          sudo loginctl enable-linger "$(id -un)"
-          sudo systemctl start "user@$(id -u).service"
-          XDG_RUNTIME_DIR="/run/user/$(id -u)"
-          export XDG_RUNTIME_DIR
-          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
-          systemd-run --user --wait --pipe true
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: cache
         with:
-          path: |
-            ~/.elan
-            .contract/.lake
-            .contract/verifier/.tools
-          key: verifier-blacksmith-ubuntu24-${{ runner.arch }}-${{ steps.host.outputs.contract }}-${{ hashFiles('scripts/setup.sh') }}-v2
+          path: .cache/trusted.tar.zst
+          key: verifier-ubuntu26-vm-${{ runner.arch }}-${{ steps.host.outputs.contract }}-${{ hashFiles('scripts/setup.sh', 'scripts/blacksmith.sh', 'scripts/vm-setup.sh') }}-v1
+      - name: Start verifier VM
+        run: bash scripts/blacksmith.sh start
       - name: Setup
-        run: |
-          bash scripts/setup.sh
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+        run: bash scripts/blacksmith.sh setup
       # Save trusted builds before candidate verification, even if the proof fails.
       # Only the default branch publishes caches shared with submission branches.
+      - name: Export trusted cache
+        if: steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        run: bash scripts/blacksmith.sh cache
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
         with:
-          path: |
-            ~/.elan
-            .contract/.lake
-            .contract/verifier/.tools
+          path: .cache/trusted.tar.zst
           key: ${{ steps.cache.outputs.cache-primary-key }}
       - name: Benchmark
-        run: python3 scripts/run.py
+        run: bash scripts/blacksmith.sh run
+      - name: Collect results
+        if: always()
+        run: bash scripts/blacksmith.sh collect
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-score
@@ -59,6 +53,11 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: verifier-logs
-          path: .work/*/verify.log
+          path: |
+            .work/*/verify.log
+            .work-vm-console.log
           include-hidden-files: true
           if-no-files-found: ignore
+      - name: Stop verifier VM
+        if: always()
+        run: bash scripts/blacksmith.sh stop

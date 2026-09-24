@@ -45,15 +45,17 @@ exact integer scores and rejects any value beyond Yukon's safe integer range.
 
 ## Workflow and caches
 
-The manual `benchmark.yml` workflow uses `blacksmith-8vcpu-ubuntu-2404` (32 GB RAM),
-with a five-hour job limit around the verifier's four-hour, 24 GiB limit. Blacksmith
-must be enabled for the repository. This beta profile still needs a live runner check;
-its namespace requirements differ from the old verifier.
+The manual `benchmark.yml` workflow uses `blacksmith-16vcpu-ubuntu-2404` (64 GB RAM).
+Because the Blacksmith host lacks Landlock, `scripts/blacksmith.sh` boots a checksum-pinned
+Ubuntu 26.04 KVM guest with 12 vCPUs and 32 GB RAM. The verifier runs as an unprivileged
+user under `/srv`, with Landlock and the upstream systemd isolation checks intact.
+The job allows five hours around the verifier's four-hour, 24 GiB limit. The VM is stopped
+on success or failure, and verifier logs and the guest console are retained as artifacts.
 
-Elan/toolchains, complete `.contract/.lake` dependency/build workspaces and verifier
-tools are cached by contract commit and setup-script hash. Only the default branch
-saves shared caches, before candidate verification. Candidate output and scores are
-never cached. Failed-run verifier logs are uploaded separately.
+The guest's elan/toolchains, complete `.contract/.lake` dependency/build workspaces and
+verifier tools are cached together by contract commit and bootstrap-script hashes.
+Only the default branch saves shared caches, before candidate verification. Candidate
+outputs and scores are never cached. Restored tools still run the upstream setup checks.
 
 Yukon owns submission PRs and promotions. Do not enable the original upstream record
 publisher on this repository. `records.json` is not updated by Yukon.
