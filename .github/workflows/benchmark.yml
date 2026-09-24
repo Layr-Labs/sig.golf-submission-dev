@@ -1,0 +1,57 @@
+name: Yukon benchmark
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    # 32 GB RAM leaves headroom above the verifier's 24 GiB ceiling.
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          submodules: recursive
+      - name: Prepare sandbox host
+        id: host
+        run: |
+          echo "contract=$(git -C .contract rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$(id -u).service"
+          XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          export XDG_RUNTIME_DIR
+          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
+          systemd-run --user --wait --pipe true
+          python3 -c 'import sys; sys.path.insert(0, ".contract/verifier"); from sandbox_profile import landlock_abi; print("Landlock ABI:", landlock_abi())'
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: cache
+        with:
+          path: |
+            ~/.elan
+            .contract/formal/.lake
+            .contract/verifier/.tools
+          key: verifier-blacksmith-ubuntu24-${{ runner.arch }}-${{ steps.host.outputs.contract }}-${{ hashFiles('scripts/setup.sh') }}-v2
+      - name: Setup
+        run: |
+          bash scripts/setup.sh
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      # Save trusted builds before candidate verification, even if the proof fails.
+      # Only the default branch publishes caches shared with submission branches.
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch
+        with:
+          path: |
+            ~/.elan
+            .contract/formal/.lake
+            .contract/verifier/.tools
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+      - name: Benchmark
+        run: python3 scripts/run.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: benchmark-score
+          path: scripts/score.json
+          include-hidden-files: true
+          if-no-files-found: error

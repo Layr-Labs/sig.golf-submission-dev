@@ -1,120 +1,30 @@
 {
   "schemaVersion": 2,
-  "name": "ots.golf",
+  "name": "sig-golf-diagnostic",
   "tracks": [
     {
-      "name": "lower-generality-2",
-      "description": "Prove a lower bound on worst-case OTS verification compressions (generality-2).",
-      "category": "lean",
-      "direction": "+",
-      "editablePaths": [
-        "formal/Submissions/LowerGenerality2"
-      ],
-      "setupCommand": [
-        "bash",
-        ".yukon/setup.sh"
-      ],
-      "benchmarkCommand": [
-        "python3",
-        ".yukon/run.py",
-        "lower-generality-2"
-      ],
-      "scorePath": "benchmark-results/lower-generality-2/score.json",
-      "runner": {
-        "provider": "github-actions",
-        "workflow": "benchmark-lower-generality-2.yml"
-      }
-    },
-    {
-      "name": "lower-generality-1",
-      "description": "Prove a lower bound on worst-case OTS verification compressions (generality-1).",
-      "category": "lean",
-      "direction": "+",
-      "editablePaths": [
-        "formal/Submissions/LowerGenerality1"
-      ],
-      "setupCommand": [
-        "bash",
-        ".yukon/setup.sh"
-      ],
-      "benchmarkCommand": [
-        "python3",
-        ".yukon/run.py",
-        "lower-generality-1"
-      ],
-      "scorePath": "benchmark-results/lower-generality-1/score.json",
-      "runner": {
-        "provider": "github-actions",
-        "workflow": "benchmark-lower-generality-1.yml"
-      }
-    },
-    {
-      "name": "lower-generality-3",
-      "description": "Prove a lower bound on worst-case OTS verification compressions (generality-3).",
-      "category": "lean",
-      "direction": "+",
-      "editablePaths": [
-        "formal/Submissions/LowerGenerality3"
-      ],
-      "setupCommand": [
-        "bash",
-        ".yukon/setup.sh"
-      ],
-      "benchmarkCommand": [
-        "python3",
-        ".yukon/run.py",
-        "lower-generality-3"
-      ],
-      "scorePath": "benchmark-results/lower-generality-3/score.json",
-      "runner": {
-        "provider": "github-actions",
-        "workflow": "benchmark-lower-generality-3.yml"
-      }
-    },
-    {
-      "name": "upper-compressions",
-      "description": "Prove an upper bound on worst-case OTS verification compressions (generality-3).",
-      "category": "lean",
+      "name": "full",
+      "description": "Diagnostic Lean-verified signature size × verification work. Product-only ranking; not deployment eligibility.",
+      "category": "cryptography",
       "direction": "-",
+      "promotionMode": "manual",
       "editablePaths": [
-        "formal/Submissions/UpperCompressions"
+        "formal/Submissions/Full"
       ],
       "setupCommand": [
         "bash",
-        ".yukon/setup.sh"
+        "scripts/setup.sh"
       ],
       "benchmarkCommand": [
         "python3",
-        ".yukon/run.py",
-        "upper-compressions"
+        "scripts/run.py"
       ],
-      "scorePath": "benchmark-results/upper-compressions/score.json",
+      "scorePath": "scripts/score.json",
+      "maxSubmissionBytes": 10485760,
       "runner": {
         "provider": "github-actions",
-        "workflow": "benchmark-upper-compressions.yml"
-      }
-    },
-    {
-      "name": "upper-riscv",
-      "description": "Prove an upper bound on worst-case OTS verification cycles (generality-3).",
-      "category": "lean",
-      "direction": "-",
-      "editablePaths": [
-        "formal/Submissions/UpperRiscv"
-      ],
-      "setupCommand": [
-        "bash",
-        ".yukon/setup.sh"
-      ],
-      "benchmarkCommand": [
-        "python3",
-        ".yukon/run.py",
-        "upper-riscv"
-      ],
-      "scorePath": "benchmark-results/upper-riscv/score.json",
-      "runner": {
-        "provider": "github-actions",
-        "workflow": "benchmark-upper-riscv.yml"
+        "workflow": "benchmark.yml",
+        "maxConcurrentWorkflows": 1
       }
     }
   ]

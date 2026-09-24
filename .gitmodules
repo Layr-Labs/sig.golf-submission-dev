@@ -1,3 +1,3 @@
 [submodule "contract"]
 	path = .contract
-	url = https://github.com/leanEthereum/ots.golf-dev.git
+	url = https://github.com/leanEthereum/sig.golf-dev.git
