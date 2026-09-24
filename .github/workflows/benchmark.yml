@@ -1,4 +1,4 @@
-name: Yukon benchmark
+name: Benchmark
 on:
   workflow_dispatch:
 permissions:
