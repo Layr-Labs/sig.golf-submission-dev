@@ -124,6 +124,7 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
       ready.getReg .x31 = s.getReg .x31 ∧
       ready.getReg .x10 = s.getReg .x10 ∧
       ready.getReg .x11 = s.getReg .x11 ∧
+      ready.getReg .x20 = s.getReg .x20 ∧
       ready.getReg .x1 = s.getReg .x1 ∧
       ready.getReg .x2 = s.getReg .x2 ∧
       (∀ a, a ≠ 0x80020 → a ≠ 0x80028 → ready.getMem a = s.getMem a) := by
@@ -163,7 +164,8 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
   have reg := digit_regs copied copiedBase
   have sticky0 : copied.getReg .x5 = s.getReg .x5 ∧
       copied.getReg .x12 = s.getReg .x12 ∧ copied.getReg .x31 = s.getReg .x31 ∧
-      copied.getReg .x10 = s.getReg .x10 ∧ copied.getReg .x11 = s.getReg .x11 := by
+      copied.getReg .x10 = s.getReg .x10 ∧ copied.getReg .x11 = s.getReg .x11 ∧
+      copied.getReg .x20 = s.getReg .x20 := by
     rw [copiedEq]
     exact chainValueState_sticky (liftStart s)
   have sticky1 := digit_sticky copied
@@ -174,7 +176,7 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
   refine ⟨ready, ordinary_trans verify s copied ready 7 3
       (resumeValueState_block s pc baseReg counterReg valid0 valid8)
       (digit_block copied copiedPC copiedBase validDigit),
-    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · exact digit_pc copied copiedPC
   · rw [reg.1, copiedChain, addr, copiedDigit, digitEq]
     apply BitVec.eq_of_toNat_eq
@@ -201,7 +203,8 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
   · exact sticky1.2.1.trans sticky0.2.1
   · exact sticky1.2.2.1.trans sticky0.2.2.1
   · exact sticky1.2.2.2.1.trans sticky0.2.2.2.1
-  · exact sticky1.2.2.2.2.trans sticky0.2.2.2.2
+  · exact sticky1.2.2.2.2.1.trans sticky0.2.2.2.2.1
+  · exact sticky1.2.2.2.2.2.trans sticky0.2.2.2.2.2
   · exact reg.2.2.2.1.trans stack0.1
   · exact reg.2.2.2.2.trans stack0.2
   · intro a low high

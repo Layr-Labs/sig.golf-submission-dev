@@ -167,7 +167,8 @@ theorem chainValueState_sticky (s : MachineState) :
     (chainValueState s).getReg .x12 = s.getReg .x12 ∧
     (chainValueState s).getReg .x31 = s.getReg .x31 ∧
     (chainValueState s).getReg .x10 = s.getReg .x10 ∧
-    (chainValueState s).getReg .x11 = s.getReg .x11 := by
+    (chainValueState s).getReg .x11 = s.getReg .x11 ∧
+    (chainValueState s).getReg .x20 = s.getReg .x20 := by
   simp [chainValueState,execInstrBr,MachineState.getReg_setReg_ne]
 
 theorem digit_sticky (s : MachineState) :
@@ -175,7 +176,8 @@ theorem digit_sticky (s : MachineState) :
     (digitState s).getReg .x12 = s.getReg .x12 ∧
     (digitState s).getReg .x31 = s.getReg .x31 ∧
     (digitState s).getReg .x10 = s.getReg .x10 ∧
-    (digitState s).getReg .x11 = s.getReg .x11 := by
+    (digitState s).getReg .x11 = s.getReg .x11 ∧
+    (digitState s).getReg .x20 = s.getReg .x20 := by
   simp [digitState,execInstrBr,MachineState.getReg_setReg_ne]
 
 theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
@@ -208,6 +210,7 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
       ready.getReg .x31 = s.getReg .x31 ∧
       ready.getReg .x10 = s.getReg .x10 ∧
       ready.getReg .x11 = s.getReg .x11 ∧
+      ready.getReg .x20 = s.getReg .x20 ∧
       ready.getReg .x1 = s.getReg .x1 ∧
       ready.getReg .x2 = s.getReg .x2 ∧
       (∀ a, a ≠ 0x80020 → a ≠ 0x80028 → ready.getMem a = s.getMem a) := by
@@ -231,7 +234,7 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
   refine ⟨ready,ordinary_trans verify s copied ready 9 3
       (chainValueState_block s pc valid0 valid8)
       (digit_block copied copiedPC (chainValueState_base s) validDigit),
-    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · exact digit_pc copied copiedPC
   · rw [reg.1,chainValueState_chain,chainEq,addr,chainValueState_digit,digitEq]
     apply BitVec.eq_of_toNat_eq
@@ -258,7 +261,8 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
   · exact sticky1.2.1.trans sticky0.2.1
   · exact sticky1.2.2.1.trans sticky0.2.2.1
   · exact sticky1.2.2.2.1.trans sticky0.2.2.2.1
-  · exact sticky1.2.2.2.2.trans sticky0.2.2.2.2
+  · exact sticky1.2.2.2.2.1.trans sticky0.2.2.2.2.1
+  · exact sticky1.2.2.2.2.2.trans sticky0.2.2.2.2.2
   · exact reg.2.2.2.1.trans (chainValueState_stack s).1
   · exact reg.2.2.2.2.trans (chainValueState_stack s).2
   · intro a low high

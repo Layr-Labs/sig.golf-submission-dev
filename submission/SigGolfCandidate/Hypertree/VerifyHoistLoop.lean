@@ -81,13 +81,14 @@ theorem LoopData.of_mem_regs {s t : MachineState} {level tree step : Nat}
   · rw [regs]; exact data.baseReg
   · rw [regs]; exact data.stepReg
   · rw [regs]; exact data.sevenReg
+  · rw [regs]; exact data.limitReg
 
 theorem LoopData.to_word_carry {s : MachineState} {level tree step : Nat}
     {side : Bool} {chain : Reference.Chain} {value : Reference.Digest}
     (data : LoopData s level tree side chain step value) (bound : step < 8) :
     HeaderWordCarry s level tree (Reference.sideNumber side) := by
   refine ⟨chain.val,step,chain.isLt,bound,data.headerEq,data.indexEq,
-    data.serviceEq,data.dstEq,data.sevenReg,data.srcEq,data.lenEq⟩
+    data.serviceEq,data.dstEq,data.sevenReg,data.srcEq,data.lenEq,data.limitReg⟩
 
 theorem hash_loop (image : Image) (hash : Hash) (code : LoopCode image)
     (s : MachineState) (level tree step remaining : Nat)
