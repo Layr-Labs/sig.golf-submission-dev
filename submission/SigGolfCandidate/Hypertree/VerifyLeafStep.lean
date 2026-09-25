@@ -19,7 +19,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
     (fragment : ∃ recovered steps cycles calls,
       Trace hash verify s steps cycles calls calls recovered ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+32+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+24+(if chain.val=0 then 47 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       recovered.pc = 0x163c ∧
       recovered.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
@@ -31,7 +31,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       (∀ a, OutsideChainWork a → recovered.getMem a = s.getMem a)) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+53+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+45+(if chain.val=0 then 47 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       final.pc = (if chain.val+1 = 46 then 0x1690 else 0x1490) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
@@ -74,7 +74,7 @@ theorem leaf_step_fast (hash : Hash) (s : MachineState) (level tree : Nat)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+53+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+45+(if chain.val=0 then 47 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       final.pc = (if chain.val+1 = 46 then 0x1690 else 0x1490) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧

@@ -71,7 +71,7 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     ∃ final steps cycles calls,
       Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+32+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+24+(if chain.val=0 then 47 else 0) ∧
       calls = 7-digit.val ∧
       final.pc = 0x163c ∧
       final.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
@@ -123,7 +123,7 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     apply witnessFrame
     · simpa [wordAddress] using outside.1 (4 : Fin 8)
     · simpa [wordAddress] using outside.1 (5 : Fin 8)
-  refine ⟨final,22+headerSteps+loopSteps,22+headerSteps+loopCycles,
+  refine ⟨final,14+headerSteps+loopSteps,14+headerSteps+loopCycles,
     7-digit.val,?_,by omega,?_,rfl,finalPC,?_,finalData.valueEq,
     finalCarry,loopRA.trans (preparedRA.trans witnessRA),
     loopSP.trans (preparedSP.trans witnessSP),frame⟩
