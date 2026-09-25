@@ -24,12 +24,12 @@ private theorem prefix_eq (s : MachineState)
 
 private def resumeValueState (s : MachineState) : MachineState :=
   let s := execInstrBr s (.LD .x7 .x28 0x448)
-  let s := execInstrBr s (.SLLI .x10 .x6 4)
-  let s := execInstrBr s (.ADD .x7 .x7 .x10)
-  let s := execInstrBr s (.LD .x10 .x7 0)
-  let s := execInstrBr s (.LD .x11 .x7 8)
-  let s := execInstrBr s (.SD .x28 .x10 0x20)
-  execInstrBr s (.SD .x28 .x11 0x28)
+  let s := execInstrBr s (.SLLI .x18 .x6 4)
+  let s := execInstrBr s (.ADD .x7 .x7 .x18)
+  let s := execInstrBr s (.LD .x18 .x7 0)
+  let s := execInstrBr s (.LD .x19 .x7 8)
+  let s := execInstrBr s (.SD .x28 .x18 0x20)
+  execInstrBr s (.SD .x28 .x19 0x28)
 
 private theorem resumeValueState_eq (s : MachineState)
     (pc : s.pc = 0x1498) (base : s.getReg .x28 = 0x80000)
@@ -45,44 +45,44 @@ private theorem resumeValueState_block (s : MachineState)
     (valid8 : accessValid (chainSource s + 8) 8 = true) :
     OrdinarySteps verify s 7 (resumeValueState s) := by
   let s1 := execInstrBr s (.LD .x7 .x28 0x448)
-  let s2 := execInstrBr s1 (.SLLI .x10 .x6 4)
-  let s3 := execInstrBr s2 (.ADD .x7 .x7 .x10)
-  let s4 := execInstrBr s3 (.LD .x10 .x7 0)
-  let s5 := execInstrBr s4 (.LD .x11 .x7 8)
-  let s6 := execInstrBr s5 (.SD .x28 .x10 0x20)
-  let s7 := execInstrBr s6 (.SD .x28 .x11 0x28)
+  let s2 := execInstrBr s1 (.SLLI .x18 .x6 4)
+  let s3 := execInstrBr s2 (.ADD .x7 .x7 .x18)
+  let s4 := execInstrBr s3 (.LD .x18 .x7 0)
+  let s5 := execInstrBr s4 (.LD .x19 .x7 8)
+  let s6 := execInstrBr s5 (.SD .x28 .x18 0x20)
+  let s7 := execInstrBr s6 (.SD .x28 .x19 0x28)
   apply OrdinarySteps.step s s1 _ (.base (.LD .x7 .x28 0x448)) 6
   · simp only [fetch, pc]; decide
   · simp [s1, ordinaryStep, memoryArgumentsValid, execInstrBr, signExtend12,
       base, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       accessValid, rangeValid, MEMORY_BYTES]
-  apply OrdinarySteps.step s1 s2 _ (.base (.SLLI .x10 .x6 4)) 5
+  apply OrdinarySteps.step s1 s2 _ (.base (.SLLI .x18 .x6 4)) 5
   · have hp : s1.pc = 0x149c := by simp [s1, execInstrBr, pc]
     simp only [fetch, hp]; decide
   · rfl
-  apply OrdinarySteps.step s2 s3 _ (.base (.ADD .x7 .x7 .x10)) 4
+  apply OrdinarySteps.step s2 s3 _ (.base (.ADD .x7 .x7 .x18)) 4
   · have hp : s2.pc = 0x14a0 := by simp [s1, s2, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · rfl
-  apply OrdinarySteps.step s3 s4 _ (.base (.LD .x10 .x7 0)) 3
+  apply OrdinarySteps.step s3 s4 _ (.base (.LD .x18 .x7 0)) 3
   · have hp : s3.pc = 0x14a4 := by simp [s1, s2, s3, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simpa [s1, s2, s3, s4, ordinaryStep, memoryArgumentsValid, execInstrBr,
       signExtend12, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       base, counter, chainSource] using valid0
-  apply OrdinarySteps.step s4 s5 _ (.base (.LD .x11 .x7 8)) 2
+  apply OrdinarySteps.step s4 s5 _ (.base (.LD .x19 .x7 8)) 2
   · have hp : s4.pc = 0x14a8 := by simp [s1, s2, s3, s4, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simpa [s1, s2, s3, s4, s5, ordinaryStep, memoryArgumentsValid, execInstrBr,
       signExtend12, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       base, counter, chainSource] using valid8
-  apply OrdinarySteps.step s5 s6 _ (.base (.SD .x28 .x10 0x20)) 1
+  apply OrdinarySteps.step s5 s6 _ (.base (.SD .x28 .x18 0x20)) 1
   · have hp : s5.pc = 0x14ac := by simp [s1, s2, s3, s4, s5, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simp [s1, s2, s3, s4, s5, s6, ordinaryStep, memoryArgumentsValid,
       execInstrBr, signExtend12, base, MachineState.getReg_setReg_eq,
       MachineState.getReg_setReg_ne, accessValid, rangeValid, MEMORY_BYTES]
-  apply OrdinarySteps.step s6 s7 _ (.base (.SD .x28 .x11 0x28)) 0
+  apply OrdinarySteps.step s6 s7 _ (.base (.SD .x28 .x19 0x28)) 0
   · have hp : s6.pc = 0x14b0 := by simp [s1, s2, s3, s4, s5, s6, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simp [s1, s2, s3, s4, s5, s6, s7, ordinaryStep, memoryArgumentsValid,
@@ -122,6 +122,8 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
       ready.getReg .x5 = s.getReg .x5 ∧
       ready.getReg .x12 = s.getReg .x12 ∧
       ready.getReg .x31 = s.getReg .x31 ∧
+      ready.getReg .x10 = s.getReg .x10 ∧
+      ready.getReg .x11 = s.getReg .x11 ∧
       ready.getReg .x1 = s.getReg .x1 ∧
       ready.getReg .x2 = s.getReg .x2 ∧
       (∀ a, a ≠ 0x80020 → a ≠ 0x80028 → ready.getMem a = s.getMem a) := by
@@ -160,7 +162,8 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
   let ready := digitState copied
   have reg := digit_regs copied copiedBase
   have sticky0 : copied.getReg .x5 = s.getReg .x5 ∧
-      copied.getReg .x12 = s.getReg .x12 ∧ copied.getReg .x31 = s.getReg .x31 := by
+      copied.getReg .x12 = s.getReg .x12 ∧ copied.getReg .x31 = s.getReg .x31 ∧
+      copied.getReg .x10 = s.getReg .x10 ∧ copied.getReg .x11 = s.getReg .x11 := by
     rw [copiedEq]
     exact chainValueState_sticky (liftStart s)
   have sticky1 := digit_sticky copied
@@ -171,7 +174,7 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
   refine ⟨ready, ordinary_trans verify s copied ready 7 3
       (resumeValueState_block s pc baseReg counterReg valid0 valid8)
       (digit_block copied copiedPC copiedBase validDigit),
-    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · exact digit_pc copied copiedPC
   · rw [reg.1, copiedChain, addr, copiedDigit, digitEq]
     apply BitVec.eq_of_toNat_eq
@@ -196,7 +199,9 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
       exact value8
   · exact sticky1.1.trans sticky0.1
   · exact sticky1.2.1.trans sticky0.2.1
-  · exact sticky1.2.2.trans sticky0.2.2
+  · exact sticky1.2.2.1.trans sticky0.2.2.1
+  · exact sticky1.2.2.2.1.trans sticky0.2.2.2.1
+  · exact sticky1.2.2.2.2.trans sticky0.2.2.2.2
   · exact reg.2.2.2.1.trans stack0.1
   · exact reg.2.2.2.2.trans stack0.2
   · intro a low high

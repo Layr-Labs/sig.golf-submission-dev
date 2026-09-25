@@ -12,10 +12,10 @@ set_option linter.unusedSimpArgs false
 def CodeAt (image : Image) : Prop :=
   instructionAt image 0x1644 = some (.base (.SLLI .x7 .x6 4)) ∧
   instructionAt image 0x1648 = some (.base (.ADD .x7 .x7 .x12)) ∧
-  instructionAt image 0x164c = some (.base (.LD .x10 .x28 32)) ∧
-  instructionAt image 0x1650 = some (.base (.LD .x11 .x28 40)) ∧
-  instructionAt image 0x1654 = some (.base (.SD .x7 .x10 2016)) ∧
-  instructionAt image 0x1658 = some (.base (.SD .x7 .x11 2024)) ∧
+  instructionAt image 0x164c = some (.base (.LD .x18 .x28 32)) ∧
+  instructionAt image 0x1650 = some (.base (.LD .x19 .x28 40)) ∧
+  instructionAt image 0x1654 = some (.base (.SD .x7 .x18 2016)) ∧
+  instructionAt image 0x1658 = some (.base (.SD .x7 .x19 2024)) ∧
   instructionAt image 0x165c = some (.base (.ADDI .x6 .x6 1)) ∧
   instructionAt image 0x1660 = some (.base (.SD .x28 .x6 1072)) ∧
   instructionAt image 0x1664 = some (.base (.ADDI .x7 .x0 46)) ∧
@@ -29,10 +29,10 @@ theorem verify_code : CodeAt verify := by
 def core (s : MachineState) : MachineState :=
   let s := execInstrBr s (.SLLI .x7 .x6 4)
   let s := execInstrBr s (.ADD .x7 .x7 .x12)
-  let s := execInstrBr s (.LD .x10 .x28 32)
-  let s := execInstrBr s (.LD .x11 .x28 40)
-  let s := execInstrBr s (.SD .x7 .x10 2016)
-  let s := execInstrBr s (.SD .x7 .x11 2024)
+  let s := execInstrBr s (.LD .x18 .x28 32)
+  let s := execInstrBr s (.LD .x19 .x28 40)
+  let s := execInstrBr s (.SD .x7 .x18 2016)
+  let s := execInstrBr s (.SD .x7 .x19 2024)
   let s := execInstrBr s (.ADDI .x6 .x6 1)
   let s := execInstrBr s (.SD .x28 .x6 1072)
   execInstrBr s (.ADDI .x7 .x0 46)
@@ -55,8 +55,8 @@ theorem state_regs (s : MachineState) (baseReg : s.getReg .x28 = 0x80000) :
     (stateAt s).getReg .x28 = 0x80000 ∧
     (stateAt s).getReg .x6 = s.getReg .x6 + 1 ∧
     (stateAt s).getReg .x7 = 46 ∧
-    (stateAt s).getReg .x10 = s.getMem 0x80020 ∧
-    (stateAt s).getReg .x11 = s.getMem 0x80028 := by
+    (stateAt s).getReg .x18 = s.getMem 0x80020 ∧
+    (stateAt s).getReg .x19 = s.getMem 0x80028 := by
   simp [stateAt, core, execInstrBr, signExtend12, baseReg,
     MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
 
@@ -94,7 +94,9 @@ theorem state_stack (s : MachineState) :
 theorem state_sticky (s : MachineState) :
     (stateAt s).getReg .x5 = s.getReg .x5 ∧
     (stateAt s).getReg .x12 = s.getReg .x12 ∧
-    (stateAt s).getReg .x31 = s.getReg .x31 := by
+    (stateAt s).getReg .x31 = s.getReg .x31 ∧
+    (stateAt s).getReg .x10 = s.getReg .x10 ∧
+    (stateAt s).getReg .x11 = s.getReg .x11 := by
   simp [stateAt, core, execInstrBr, MachineState.getReg_setReg_ne]
 
 
@@ -217,10 +219,10 @@ theorem block (image : Image) (code : CodeAt image) (s : MachineState)
   let s2 := s1
   let s3 := execInstrBr s2 (.SLLI .x7 .x6 4)
   let s4 := execInstrBr s3 (.ADD .x7 .x7 .x12)
-  let s5 := execInstrBr s4 (.LD .x10 .x28 32)
-  let s6 := execInstrBr s5 (.LD .x11 .x28 40)
-  let s7 := execInstrBr s6 (.SD .x7 .x10 2016)
-  let s8 := execInstrBr s7 (.SD .x7 .x11 2024)
+  let s5 := execInstrBr s4 (.LD .x18 .x28 32)
+  let s6 := execInstrBr s5 (.LD .x19 .x28 40)
+  let s7 := execInstrBr s6 (.SD .x7 .x18 2016)
+  let s8 := execInstrBr s7 (.SD .x7 .x19 2024)
   let s9 := execInstrBr s8 (.ADDI .x6 .x6 1)
   let s10 := execInstrBr s9 (.SD .x28 .x6 1072)
   let s11 := execInstrBr s10 (.ADDI .x7 .x0 46)
@@ -240,32 +242,32 @@ theorem block (image : Image) (code : CodeAt image) (s : MachineState)
     · have hp : s3.pc = 0x1648 := by simp [s1,s2,s3,execInstrBr,pc]
       simpa only [fetch_at,hp] using c3
     · rfl
-    apply OrdinarySteps.step s4 s5 _ (.base (.LD .x10 .x28 32)) 7
+    apply OrdinarySteps.step s4 s5 _ (.base (.LD .x18 .x28 32)) 7
     · have hp : s4.pc = 0x164c := by simp [s1,s2,s3,s4,execInstrBr,pc]
       simpa only [fetch_at,hp] using c4
     · simp [s1,s2,s3,s4,s5,ordinaryStep,memoryArgumentsValid,execInstrBr,
         signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne,baseReg,
         accessValid,rangeValid,MEMORY_BYTES]
-    apply OrdinarySteps.step s5 s6 _ (.base (.LD .x11 .x28 40)) 6
+    apply OrdinarySteps.step s5 s6 _ (.base (.LD .x19 .x28 40)) 6
     · have hp : s5.pc = 0x1650 := by simp [s1,s2,s3,s4,s5,execInstrBr,pc]
       simpa only [fetch_at,hp] using c5
     · simp [s1,s2,s3,s4,s5,s6,ordinaryStep,memoryArgumentsValid,execInstrBr,
         signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne,baseReg,
         accessValid,rangeValid,MEMORY_BYTES]
-    apply OrdinarySteps.step s6 s7 _ (.base (.SD .x7 .x10 2016)) 5
+    apply OrdinarySteps.step s6 s7 _ (.base (.SD .x7 .x18 2016)) 5
     · have hp : s6.pc = 0x1654 := by simp [s1,s2,s3,s4,s5,s6,execInstrBr,pc]
       simpa only [fetch_at,hp] using c6
-    · have valid : memoryArgumentsValid s6 (.SD .x7 .x10 (2016#12)) = true := by
+    · have valid : memoryArgumentsValid s6 (.SD .x7 .x18 (2016#12)) = true := by
         have safe0 := safe.1
         rw [← address_relative s destination] at safe0
         simpa [s6,s5,s4,s3,s2,s1,memoryArgumentsValid,execInstrBr,counterReg,
           signExtend12,MachineState.getReg_setReg_eq,
           MachineState.getReg_setReg_ne] using safe0
       simp [ordinaryStep, valid, s7]
-    apply OrdinarySteps.step s7 s8 _ (.base (.SD .x7 .x11 2024)) 4
+    apply OrdinarySteps.step s7 s8 _ (.base (.SD .x7 .x19 2024)) 4
     · have hp : s7.pc = 0x1658 := by simp [s1,s2,s3,s4,s5,s6,s7,execInstrBr,pc]
       simpa only [fetch_at,hp] using c7
-    · have valid : memoryArgumentsValid s7 (.SD .x7 .x11 (2024#12)) = true := by
+    · have valid : memoryArgumentsValid s7 (.SD .x7 .x19 (2024#12)) = true := by
         have safe8 := safe.2
         rw [← address_relative_next s destination] at safe8
         simpa [s7,s6,s5,s4,s3,s2,s1,memoryArgumentsValid,execInstrBr,counterReg,
@@ -353,28 +355,7 @@ private theorem endpoint_header_word_frame (s : MachineState) (chain : Reference
     exact endpointNe 1
   rw [if_neg h1, if_neg h0]
 
-/-- The stronger word-level hoisted header invariant survives endpoint storage. -/
-theorem endpoint_header_word_carry (s : MachineState) (level tree leaf : Nat)
-    (chain : Reference.Chain) (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
-    (carry : Hoist.HeaderWordCarry s level tree leaf) :
-    Hoist.HeaderWordCarry (KeygenEndpoint.stateAt s (-508) 32 40) level tree leaf := by
-  rcases carry with ⟨oldChain, oldStep, hc, hs, header, index, service, destination, seven⟩
-  obtain ⟨r5, r12, r31⟩ := KeygenEndpoint.stickyRegsAt s (-508) 32 40
-  refine ⟨oldChain, oldStep, hc, hs, ?_, ?_, r5.trans service,
-    r12.trans destination, r31.trans seven⟩
-  · simpa [wordAddress] using
-      (endpoint_header_word_frame s chain counter 0 (by decide)).trans header
-  · intro i
-    have addr : wordAddress 0x80008 i.val = wordAddress 0x80000 (i.val+1) := by
-      unfold wordAddress
-      apply congrArg (BitVec.ofNat 64)
-      omega
-    rw [addr, endpoint_header_word_frame s chain counter (i.val+1)
-      (by have := i.isLt; omega)]
-    simpa only [← addr] using index i
-
-
-/-- The old pure header carry theorem transfers because the two blocks have identical memory and sticky registers. -/
+/-- The hoisted header words and the sticky HASH registers survive the endpoint store. -/
 theorem endpoint_short_header_word_carry (s : MachineState) (level tree leaf : Nat)
     (chain : Reference.Chain)
     (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
@@ -384,17 +365,23 @@ theorem endpoint_short_header_word_carry (s : MachineState) (level tree leaf : N
     Hoist.HeaderWordCarry (EndpointShort.stateAt s) level tree leaf := by
   have counterReg : s.getReg .x6 = s.getMem 0x80430 :=
     chainReg.trans counter.symm
-  have old := endpoint_header_word_carry s level tree leaf chain counter carry
-  rcases old with ⟨oldChain, oldStep, hc, hs, header, index, service, destination, seven⟩
-  rcases carry with ⟨_, _, _, _, _, _, sourceService, sourceDestination, sourceSeven⟩
-  obtain ⟨r5, r12, r31⟩ := EndpointShort.state_sticky s
-  refine ⟨oldChain, oldStep, hc, hs, ?_, ?_, r5.trans sourceService,
-    r12.trans sourceDestination, r31.trans sourceSeven⟩
-  · rw [EndpointShort.state_mem s baseReg sourceDestination counterReg]
-    exact header
+  rcases carry with ⟨oldChain, oldStep, hc, hs, header, index, service, destination, seven,
+    source, length⟩
+  obtain ⟨r5, r12, r31, r10, r11⟩ := EndpointShort.state_sticky s
+  refine ⟨oldChain, oldStep, hc, hs, ?_, ?_, r5.trans service,
+    r12.trans destination, r31.trans seven, r10.trans source, r11.trans length⟩
+  · rw [EndpointShort.state_mem s baseReg destination counterReg]
+    simpa [wordAddress] using
+      (endpoint_header_word_frame s chain counter 0 (by decide)).trans header
   · intro i
-    rw [EndpointShort.state_mem s baseReg sourceDestination counterReg]
-    exact index i
+    rw [EndpointShort.state_mem s baseReg destination counterReg]
+    have addr : wordAddress 0x80008 i.val = wordAddress 0x80000 (i.val+1) := by
+      unfold wordAddress
+      apply congrArg (BitVec.ofNat 64)
+      omega
+    rw [addr, endpoint_header_word_frame s chain counter (i.val+1)
+      (by have := i.isLt; omega)]
+    simpa only [← addr] using index i
 
 /-- Drop-in endpoint theorem for the patched verifier image. -/
 theorem store_endpoint_with_word_carry (s : MachineState) (level tree leaf : Nat)

@@ -28,7 +28,9 @@ theorem entry_regs (s : MachineState) :
 theorem entry_sticky (s : MachineState) :
     (entryState s).getReg .x5 = s.getReg .x5 ∧
     (entryState s).getReg .x12 = s.getReg .x12 ∧
-    (entryState s).getReg .x31 = s.getReg .x31 := by
+    (entryState s).getReg .x31 = s.getReg .x31 ∧
+    (entryState s).getReg .x10 = s.getReg .x10 ∧
+    (entryState s).getReg .x11 = s.getReg .x11 := by
   simp [entryState,execInstrBr,MachineState.getReg_setReg_ne]
 
 theorem full_mem (s : MachineState) (baseReg : s.getReg .x28 = 0x80000) (a : Word) :
@@ -117,12 +119,12 @@ theorem full_header_word_carry (s : MachineState) (level tree leaf chain step : 
     exact (keep _ (by fin_cases i <;> decide)).trans (valueEq i)
   have words := VerifyChainHeaderDirect.words prepared level tree leaf chain step value
     preparedLevel preparedLeaf preparedChain preparedStep preparedIndex preparedValue
-  obtain ⟨service, _, _, destination⟩ := VerifyChainHeaderDirect.regs prepared
+  obtain ⟨service, source, length, destination⟩ := VerifyChainHeaderDirect.regs prepared
   have seven : (VerifyChainHeaderDirect.state prepared).getReg .x31 = 7 := by
     have reg : (VerifyChainHeaderDirect.state prepared).getReg .x31 = prepared.getReg .x31 := by
       simp [VerifyChainHeaderDirect.state, execInstrBr, MachineState.getReg_setReg_ne]
     exact reg.trans (full_regs s).2.2.2.2.2.2.1
-  refine ⟨chain, step, chainBound, stepBound, ?_, ?_, service, destination, seven⟩
+  refine ⟨chain, step, chainBound, stepBound, ?_, ?_, service, destination, seven, source, length⟩
   · simpa [KeygenDomain.inputWord, wordAddress] using words (0 : Fin 6)
   · intro i
     have w := words ⟨i.val+1, by have := i.isLt; omega⟩
@@ -147,7 +149,7 @@ theorem partial_loop_data (s : MachineState) (level tree : Nat)
       value.extractLsb' (64*i.val) 64) :
     LoopData (partialState s) level tree side chain step value := by
   rcases carry with ⟨oldChain,oldStep,oldChainBound,oldStepBound,
-    header,index,service,destination,seven⟩
+    header,index,service,destination,seven,source,length⟩
   have leafBound : Reference.sideNumber side < 256 := by cases side <;> decide
   have truncateChain : ((BitVec.ofNat 64 chain.val).truncate 8) =
       BitVec.ofNat 8 chain.val := by
@@ -159,19 +161,19 @@ theorem partial_loop_data (s : MachineState) (level tree : Nat)
       BitVec.setWidth_ofNat_of_le (by decide : 8 ≤ 64)]
   obtain ⟨r5,r10,r11,r12,r30,r31⟩ := partial_regs s
   constructor
-  · rw [partial_mem,if_pos rfl,header,chainReg,stepReg,
+  · rw [partial_mem s source,if_pos rfl,header,chainReg,stepReg,
       truncateChain,truncateStep]
     exact header_chain_step_replace level (Reference.sideNumber side)
       oldChain oldStep chain.val step levelBound leafBound
       (by omega) (by omega) (by have := chain.isLt; omega) (by omega)
   · intro i
-    rw [partial_mem,if_neg (by fin_cases i <;> decide)]
+    rw [partial_mem s source,if_neg (by fin_cases i <;> decide)]
     exact index i
   · intro i
-    rw [partial_mem,if_neg (by fin_cases i <;> decide)]
+    rw [partial_mem s source,if_neg (by fin_cases i <;> decide)]
     exact valueEq i
-  · exact r10
-  · exact r11
+  · exact r10.trans source
+  · exact r11.trans length
   · exact r12.trans destination
   · exact r5.trans service
   · have same : (partialState s).getReg .x6 = s.getReg .x6 := by
@@ -227,7 +229,7 @@ theorem full_loop_data (s : MachineState) (level tree : Nat)
   have carry := full_header_word_carry s level tree
     (Reference.sideNumber side) chain.val step value chain.isLt
     stepBound baseReg stepReg levelEq leafEq chainEq indexEq valueEq
-  rcases carry with ⟨_,_,_,_,_,canonicalIndex,_,_,seven⟩
+  rcases carry with ⟨_,_,_,_,_,canonicalIndex,_,_,seven,_,_⟩
   constructor
   · simpa [final,KeygenDomain.inputWord,wordAddress] using words (0 : Fin 6)
   · exact canonicalIndex
@@ -271,7 +273,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
     (levelBound : level < 256) :
     ∃ prepared instructions,
       OrdinarySteps verify s instructions prepared ∧
-      instructions = (if chain.val = 0 then 53 else 6) ∧
+      instructions = (if chain.val = 0 then 53 else 4) ∧
       prepared.pc = 0x1930 ∧
       LoopData prepared level tree side chain digit.val value ∧
       prepared.getReg .x1 = s.getReg .x1 ∧
@@ -358,19 +360,22 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
       · exact False.elim (zero h)
       · exact h
     have enteredCarry : HeaderWordCarry entered level tree (Reference.sideNumber side) := by
-      rcases oldCarry with ⟨oldChain,oldStep,hc,hs,header,index,r5,r12,r31⟩
-      obtain ⟨e5,e12,e31⟩ := entry_sticky s
-      refine ⟨oldChain,oldStep,hc,hs,?_,?_,e5.trans r5,e12.trans r12,e31.trans r31⟩
+      rcases oldCarry with ⟨oldChain,oldStep,hc,hs,header,index,r5,r12,r31,r10,r11⟩
+      obtain ⟨e5,e12,e31,e10',e11'⟩ := entry_sticky s
+      refine ⟨oldChain,oldStep,hc,hs,?_,?_,e5.trans r5,e12.trans r12,e31.trans r31,
+        e10'.trans r10,e11'.trans r11⟩
       · exact (entry_mem s _).trans header
       · intro i; exact (entry_mem s _).trans (index i)
     let prepared := partialState entered
     have partialCode : PartialCode verify := by unfold PartialCode; decide
-    have partialRun := partial_block verify partialCode entered atPartial
+    have enteredSource : entered.getReg .x10 = 0x80000 := by
+      rcases enteredCarry with ⟨_,_,_,_,_,_,_,_,_,h,_⟩; exact h
+    have partialRun := partial_block verify partialCode entered atPartial enteredSource
     have preparedData := partial_loop_data entered level tree side chain digit.val
       value enteredCarry levelBound digit.isLt enteredChain enteredBase enteredStep enteredValue
-    refine ⟨prepared,6,?_,by simp [zero],partial_pc entered atPartial,
+    refine ⟨prepared,4,?_,by simp [zero],partial_pc entered atPartial,
       preparedData,?_,?_,?_⟩
-    · convert ordinary_trans verify s entered prepared 1 5 entryRun partialRun using 1 <;> omega
+    · convert ordinary_trans verify s entered prepared 1 3 entryRun partialRun using 1 <;> omega
     · have : prepared.getReg .x1 = entered.getReg .x1 := by
         simp [prepared,partialState,execInstrBr,MachineState.getReg_setReg_ne]
       exact this.trans e1
@@ -378,7 +383,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
         simp [prepared,partialState,execInstrBr,MachineState.getReg_setReg_ne]
       exact this.trans e2
     · intro a outside
-      rw [partial_mem,if_neg outside.1]
+      rw [partial_mem entered enteredSource,if_neg outside.1]
       exact entry_mem s a
 
 end SigGolfCandidate.Hypertree.Verifying.Hoist

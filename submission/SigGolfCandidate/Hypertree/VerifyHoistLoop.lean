@@ -87,7 +87,7 @@ theorem LoopData.to_word_carry {s : MachineState} {level tree step : Nat}
     (data : LoopData s level tree side chain step value) (bound : step < 8) :
     HeaderWordCarry s level tree (Reference.sideNumber side) := by
   refine ⟨chain.val,step,chain.isLt,bound,data.headerEq,data.indexEq,
-    data.serviceEq,data.dstEq,data.sevenReg⟩
+    data.serviceEq,data.dstEq,data.sevenReg,data.srcEq,data.lenEq⟩
 
 theorem hash_loop (image : Image) (hash : Hash) (code : LoopCode image)
     (s : MachineState) (level tree step remaining : Nat)

@@ -11,12 +11,12 @@ def chainValueState (s : MachineState) : MachineState :=
   let s := execInstrBr s (.LUI .x28 0x80)
   let s := execInstrBr s (.LD .x6 .x28 0x430)
   let s := execInstrBr s (.LD .x7 .x28 0x448)
-  let s := execInstrBr s (.SLLI .x10 .x6 4)
-  let s := execInstrBr s (.ADD .x7 .x7 .x10)
-  let s := execInstrBr s (.LD .x10 .x7 0)
-  let s := execInstrBr s (.LD .x11 .x7 8)
-  let s := execInstrBr s (.SD .x28 .x10 0x20)
-  execInstrBr s (.SD .x28 .x11 0x28)
+  let s := execInstrBr s (.SLLI .x18 .x6 4)
+  let s := execInstrBr s (.ADD .x7 .x7 .x18)
+  let s := execInstrBr s (.LD .x18 .x7 0)
+  let s := execInstrBr s (.LD .x19 .x7 8)
+  let s := execInstrBr s (.SD .x28 .x18 0x20)
+  execInstrBr s (.SD .x28 .x19 0x28)
 
 theorem chainValueState_block (s : MachineState) (pc : s.pc = 0x1490)
     (valid0 : accessValid (chainSource s) 8 = true) (valid8 : accessValid (chainSource s + 8) 8 = true) :
@@ -24,12 +24,12 @@ theorem chainValueState_block (s : MachineState) (pc : s.pc = 0x1490)
   let s1 := execInstrBr s (.LUI .x28 0x80)
   let s2 := execInstrBr s1 (.LD .x6 .x28 0x430)
   let s3 := execInstrBr s2 (.LD .x7 .x28 0x448)
-  let s4 := execInstrBr s3 (.SLLI .x10 .x6 4)
-  let s5 := execInstrBr s4 (.ADD .x7 .x7 .x10)
-  let s6 := execInstrBr s5 (.LD .x10 .x7 0)
-  let s7 := execInstrBr s6 (.LD .x11 .x7 8)
-  let s8 := execInstrBr s7 (.SD .x28 .x10 0x20)
-  let s9 := execInstrBr s8 (.SD .x28 .x11 0x28)
+  let s4 := execInstrBr s3 (.SLLI .x18 .x6 4)
+  let s5 := execInstrBr s4 (.ADD .x7 .x7 .x18)
+  let s6 := execInstrBr s5 (.LD .x18 .x7 0)
+  let s7 := execInstrBr s6 (.LD .x19 .x7 8)
+  let s8 := execInstrBr s7 (.SD .x28 .x18 0x20)
+  let s9 := execInstrBr s8 (.SD .x28 .x19 0x28)
   apply OrdinarySteps.step s s1 _ (.base (.LUI .x28 0x80)) 8
   · have hp : s.pc = 0x1490 := by simp [execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
@@ -43,32 +43,32 @@ theorem chainValueState_block (s : MachineState) (pc : s.pc = 0x1490)
   · have hp : s2.pc = 0x1498 := by simp [s1, s2, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simp [s1, s2, s3, ordinaryStep, memoryArgumentsValid, execInstrBr, signExtend12, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne, accessValid, rangeValid, MEMORY_BYTES]
-  apply OrdinarySteps.step s3 s4 _ (.base (.SLLI .x10 .x6 4)) 5
+  apply OrdinarySteps.step s3 s4 _ (.base (.SLLI .x18 .x6 4)) 5
   · have hp : s3.pc = 0x149c := by simp [s1, s2, s3, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · rfl
-  apply OrdinarySteps.step s4 s5 _ (.base (.ADD .x7 .x7 .x10)) 4
+  apply OrdinarySteps.step s4 s5 _ (.base (.ADD .x7 .x7 .x18)) 4
   · have hp : s4.pc = 0x14a0 := by simp [s1, s2, s3, s4, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · rfl
-  apply OrdinarySteps.step s5 s6 _ (.base (.LD .x10 .x7 0)) 3
+  apply OrdinarySteps.step s5 s6 _ (.base (.LD .x18 .x7 0)) 3
   · have hp : s5.pc = 0x14a4 := by simp [s1, s2, s3, s4, s5, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simpa [s1, s2, s3, s4, s5, s6, ordinaryStep, memoryArgumentsValid, execInstrBr,
       signExtend12, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne, chainSource] using valid0
-  apply OrdinarySteps.step s6 s7 _ (.base (.LD .x11 .x7 8)) 2
+  apply OrdinarySteps.step s6 s7 _ (.base (.LD .x19 .x7 8)) 2
   · have hp : s6.pc = 0x14a8 := by simp [s1, s2, s3, s4, s5, s6, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simpa [s1, s2, s3, s4, s5, s6, s7, ordinaryStep, memoryArgumentsValid,
       execInstrBr, signExtend12, MachineState.getReg_setReg_eq,
       MachineState.getReg_setReg_ne, chainSource] using valid8
-  apply OrdinarySteps.step s7 s8 _ (.base (.SD .x28 .x10 0x20)) 1
+  apply OrdinarySteps.step s7 s8 _ (.base (.SD .x28 .x18 0x20)) 1
   · have hp : s7.pc = 0x14ac := by simp [s1, s2, s3, s4, s5, s6, s7, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simp [s1, s2, s3, s4, s5, s6, s7, s8, ordinaryStep, memoryArgumentsValid,
       execInstrBr, signExtend12, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       accessValid, rangeValid, MEMORY_BYTES]
-  apply OrdinarySteps.step s8 s9 _ (.base (.SD .x28 .x11 0x28)) 0
+  apply OrdinarySteps.step s8 s9 _ (.base (.SD .x28 .x19 0x28)) 0
   · have hp : s8.pc = 0x14b0 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, execInstrBr, pc, BitVec.add_assoc]
     simp only [fetch, hp]; decide
   · simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, ordinaryStep, memoryArgumentsValid,
@@ -165,13 +165,17 @@ theorem chainValueState_digit (s : MachineState) (chain : Reference.Chain) :
 theorem chainValueState_sticky (s : MachineState) :
     (chainValueState s).getReg .x5 = s.getReg .x5 ∧
     (chainValueState s).getReg .x12 = s.getReg .x12 ∧
-    (chainValueState s).getReg .x31 = s.getReg .x31 := by
+    (chainValueState s).getReg .x31 = s.getReg .x31 ∧
+    (chainValueState s).getReg .x10 = s.getReg .x10 ∧
+    (chainValueState s).getReg .x11 = s.getReg .x11 := by
   simp [chainValueState,execInstrBr,MachineState.getReg_setReg_ne]
 
 theorem digit_sticky (s : MachineState) :
     (digitState s).getReg .x5 = s.getReg .x5 ∧
     (digitState s).getReg .x12 = s.getReg .x12 ∧
-    (digitState s).getReg .x31 = s.getReg .x31 := by
+    (digitState s).getReg .x31 = s.getReg .x31 ∧
+    (digitState s).getReg .x10 = s.getReg .x10 ∧
+    (digitState s).getReg .x11 = s.getReg .x11 := by
   simp [digitState,execInstrBr,MachineState.getReg_setReg_ne]
 
 theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
@@ -202,6 +206,8 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
       ready.getReg .x5 = s.getReg .x5 ∧
       ready.getReg .x12 = s.getReg .x12 ∧
       ready.getReg .x31 = s.getReg .x31 ∧
+      ready.getReg .x10 = s.getReg .x10 ∧
+      ready.getReg .x11 = s.getReg .x11 ∧
       ready.getReg .x1 = s.getReg .x1 ∧
       ready.getReg .x2 = s.getReg .x2 ∧
       (∀ a, a ≠ 0x80020 → a ≠ 0x80028 → ready.getMem a = s.getMem a) := by
@@ -225,7 +231,7 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
   refine ⟨ready,ordinary_trans verify s copied ready 9 3
       (chainValueState_block s pc valid0 valid8)
       (digit_block copied copiedPC (chainValueState_base s) validDigit),
-    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+    ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · exact digit_pc copied copiedPC
   · rw [reg.1,chainValueState_chain,chainEq,addr,chainValueState_digit,digitEq]
     apply BitVec.eq_of_toNat_eq
@@ -250,7 +256,9 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
       exact value8
   · exact sticky1.1.trans sticky0.1
   · exact sticky1.2.1.trans sticky0.2.1
-  · exact sticky1.2.2.trans sticky0.2.2
+  · exact sticky1.2.2.1.trans sticky0.2.2.1
+  · exact sticky1.2.2.2.1.trans sticky0.2.2.2.1
+  · exact sticky1.2.2.2.2.trans sticky0.2.2.2.2
   · exact reg.2.2.2.1.trans (chainValueState_stack s).1
   · exact reg.2.2.2.2.trans (chainValueState_stack s).2
   · intro a low high

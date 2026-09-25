@@ -47,12 +47,14 @@ private theorem witness_carry (s ready : MachineState) (level tree leaf : Nat)
     (service : ready.getReg .x5 = s.getReg .x5)
     (destination : ready.getReg .x12 = s.getReg .x12)
     (seven : ready.getReg .x31 = s.getReg .x31)
+    (source : ready.getReg .x10 = s.getReg .x10)
+    (length : ready.getReg .x11 = s.getReg .x11)
     (frame : ∀ a, a ≠ 0x80020 → a ≠ 0x80028 →
       ready.getMem a = s.getMem a) :
     Hoist.HeaderWordCarry ready level tree leaf := by
-  rcases carry with ⟨oldChain,oldStep,hc,hs,header,index,r5,r12,r31⟩
+  rcases carry with ⟨oldChain,oldStep,hc,hs,header,index,r5,r12,r31,r10,r11⟩
   refine ⟨oldChain,oldStep,hc,hs,?_,?_,service.trans r5,
-    destination.trans r12,seven.trans r31⟩
+    destination.trans r12,seven.trans r31,source.trans r10,length.trans r11⟩
   · exact (frame _ (by decide) (by decide)).trans header
   · intro i
     exact (frame _ (by fin_cases i <;> decide)
@@ -79,7 +81,7 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     ∃ final steps cycles calls,
       Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+18+(if chain.val=0 then 49 else 0) ∧
+      cycles ≤ 11*calls+16+(if chain.val=0 then 51 else 0) ∧
       calls = 7-digit.val ∧
       final.pc = 0x1644 ∧
       final.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
@@ -108,6 +110,8 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
         witness.getReg .x5 = s.getReg .x5 ∧
         witness.getReg .x12 = s.getReg .x12 ∧
         witness.getReg .x31 = s.getReg .x31 ∧
+        witness.getReg .x10 = s.getReg .x10 ∧
+        witness.getReg .x11 = s.getReg .x11 ∧
         witness.getReg .x1 = s.getReg .x1 ∧
         witness.getReg .x2 = s.getReg .x2 ∧
         (∀ a, a ≠ 0x80020 → a ≠ 0x80028 → witness.getMem a = s.getMem a) := by
@@ -143,14 +147,14 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
   obtain ⟨witness, witnessRun, witnessPC, witnessDigit, witnessChain,
     witnessPtr, witnessLevel, witnessLeaf, witnessCounter, witnessIndex,
     witnessValue, witnessService, witnessDestination, witnessSeven,
-    witnessRA, witnessSP, witnessFrame⟩ := witnessPrep
+    witnessSource, witnessLength, witnessRA, witnessSP, witnessFrame⟩ := witnessPrep
   have witnessReady : Hoist.HeaderReadyWord witness level tree
       (Reference.sideNumber side) chain.val := by
     rcases ready with zero | carry
     · exact Or.inl zero
     · exact Or.inr (witness_carry s witness level tree
         (Reference.sideNumber side) carry witnessService witnessDestination
-        witnessSeven witnessFrame)
+        witnessSeven witnessSource witnessLength witnessFrame)
   obtain ⟨prepared, headerSteps, headerRun, headerStepsEq, preparedPC,
     preparedData, preparedRA, preparedSP, headerFrame⟩ :=
     Hoist.prepare_header witness level tree side chain digit value witnessPC

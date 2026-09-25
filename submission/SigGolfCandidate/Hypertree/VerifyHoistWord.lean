@@ -233,12 +233,13 @@ def HeaderWordCarry (s : MachineState) (level tree leaf : Nat) : Prop :=
     s.getMem 0x80000 = KeygenDomain.header 2 level leaf oldChain oldStep ∧
     (∀ i : Fin 3, s.getMem (wordAddress 0x80008 i.val) =
       (BitVec.ofNat 192 tree).extractLsb' (64*i.val) 64) ∧
-    s.getReg .x5 = 1 ∧ s.getReg .x12 = 0x80020 ∧ s.getReg .x31 = 7
+    s.getReg .x5 = 1 ∧ s.getReg .x12 = 0x80020 ∧ s.getReg .x31 = 7 ∧
+    s.getReg .x10 = 0x80000 ∧ s.getReg .x11 = 384
 
 def HeaderReadyWord (s : MachineState) (level tree leaf next : Nat) : Prop :=
   next = 0 ∨ HeaderWordCarry s level tree leaf
 
-theorem partial_mem (s : MachineState) (a : Word) :
+theorem partial_mem (s : MachineState) (src : s.getReg .x10 = 0x80000) (a : Word) :
     (partialState s).getMem a =
       if a = 0x80000 then
         replaceByte (replaceByte (s.getMem 0x80000) 3 ((s.getReg .x6).truncate 8))
@@ -246,10 +247,10 @@ theorem partial_mem (s : MachineState) (a : Word) :
       else s.getMem a := by
   by_cases h : a = 0x80000
   · subst a
-    simp [partialState, execInstrBr, signExtend12, MachineState.setByte,
+    simp [partialState, execInstrBr, signExtend12, MachineState.setByte, src,
       Expansion.mem_setMem, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       alignToDword, byteOffset]
-  · simp [partialState, execInstrBr, signExtend12, MachineState.setByte,
+  · simp [partialState, execInstrBr, signExtend12, MachineState.setByte, src,
       Expansion.mem_setMem, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       alignToDword, byteOffset]
     split_ifs <;> simp_all
@@ -261,18 +262,20 @@ theorem partial_word_carry (s : MachineState) (level tree leaf chain step : Nat)
     (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain)
     (stepReg : s.getReg .x30 = BitVec.ofNat 64 step) :
     HeaderWordCarry (partialState s) level tree leaf := by
-  rcases carry with ⟨oldChain,oldStep,oldChainBound,oldStepBound,head,index,r5,r12,r31⟩
-  refine ⟨chain,step,hc,hs,?_,?_,?_,?_,?_⟩
-  · rw [partial_mem, if_pos rfl, head, chainReg, stepReg]
+  rcases carry with ⟨oldChain,oldStep,oldChainBound,oldStepBound,head,index,r5,r12,r31,r10,r11⟩
+  refine ⟨chain,step,hc,hs,?_,?_,?_,?_,?_,?_,?_⟩
+  · rw [partial_mem s r10, if_pos rfl, head, chainReg, stepReg]
     simpa only [BitVec.truncate_eq_setWidth,
       BitVec.setWidth_ofNat_of_le (by decide : 8 ≤ 64)] using
       (header_chain_step_replace level leaf oldChain oldStep chain step hl hf
         (by omega) (by omega) (by omega) (by omega))
   · intro i
-    rw [partial_mem, if_neg (by fin_cases i <;> decide)]
+    rw [partial_mem s r10, if_neg (by fin_cases i <;> decide)]
     exact index i
   · exact (partial_regs s).1.trans r5
   · exact (partial_regs s).2.2.2.1.trans r12
   · exact (partial_regs s).2.2.2.2.2.trans r31
+  · exact (partial_regs s).2.1.trans r10
+  · exact (partial_regs s).2.2.1.trans r11
 
 end SigGolfCandidate.Hypertree.Verifying.Hoist
