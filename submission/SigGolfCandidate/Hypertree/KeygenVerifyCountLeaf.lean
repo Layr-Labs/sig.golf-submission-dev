@@ -7,6 +7,7 @@ set_option maxRecDepth 4096
 
 theorem upper_leaf_body_exact (hash : Hash) (s : MachineState) (level tree : Nat) (side : Bool) (base : Nat)
     (message : Reference.Digest) (values : Reference.Chain → Reference.Digest)
+    (small : level < 160)
     (pc : s.pc = 0x1490) (data : LeafData s level tree side base message values)
     (counter : s.getMem 0x80430 = 0) (sp : s.getReg .x2 = 0xffffe0)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
@@ -18,7 +19,7 @@ theorem upper_leaf_body_exact (hash : Hash) (s : MachineState) (level tree : Nat
       (∀ a, OutsideUpperLeaf side a → final.getMem a = s.getMem a) ∧ calls = chainCalls message := by
   obtain ⟨ready, steps, cycles, calls, loop, hsteps, hcycles, hcalls, readyPC, _,
     readyData, endpoints, _, readySP, loopFrame, exactCalls⟩ := recover_all_chains_exact hash s level tree side base message values
-      pc data counter aligned bound
+      small pc data counter aligned bound
   have words : ∀ i : Fin 92, ready.getMem (wordAddress 0x80800 i.val) =
       VerifyLeafHeaderDirect.endpointWord (recoveredEndpoint hash level tree side message values) i := by
     intro i
@@ -42,6 +43,7 @@ theorem upper_leaf_body_exact (hash : Hash) (s : MachineState) (level tree : Nat
 
 theorem upper_leaf_call_exact (hash : Hash) (s : MachineState) (level tree : Nat) (side : Bool) (base : Nat)
     (message : Reference.Digest) (signature : Reference.LayerSignature)
+    (small : level < 160)
     (pc : s.pc = 0x1458) (sp : s.getReg .x2 = 0xfffff0)
     (data : LeafData s level tree side base message signature.values)
     (nonzero : BitVec.ofNat 64 level ≠ 0) (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
@@ -54,7 +56,7 @@ theorem upper_leaf_call_exact (hash : Hash) (s : MachineState) (level tree : Nat
   obtain ⟨ready, pre, rpc, rdata, counter, rsp, saved, entryFrame⟩ :=
     prepare_upper_leaf hash s level tree side base message signature pc sp data nonzero aligned bound
   obtain ⟨final, steps, cycles, calls, body, hsteps, hcycles, hcalls, finalPC, finalSP, output, frame, exactCalls⟩ :=
-    upper_leaf_body_exact hash ready level tree side base message signature.values rpc rdata counter rsp aligned bound
+    upper_leaf_body_exact hash ready level tree side base message signature.values small rpc rdata counter rsp aligned bound
   refine ⟨final, 14+steps, 14+cycles, calls, ?_, by omega, by omega, hcalls, ?_, ?_, ?_, ?_, exactCalls⟩
   · simpa only [Nat.zero_add] using pre.trans body
   · rw [finalPC, saved]

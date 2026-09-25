@@ -14,6 +14,7 @@ def OutsideUpperLeaf (side : Bool) (a : Word) : Prop :=
 /-- All verifier chains, leaf compression, public-slot write, and the actual saved return. -/
 theorem upper_leaf_body (hash : Hash) (s : MachineState) (level tree : Nat) (side : Bool) (base : Nat)
     (message : Reference.Digest) (values : Reference.Chain → Reference.Digest)
+    (small : level < 160)
     (pc : s.pc = 0x1490) (data : LeafData s level tree side base message values)
     (counter : s.getMem 0x80430 = 0) (sp : s.getReg .x2 = 0xffffe0)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
@@ -25,7 +26,7 @@ theorem upper_leaf_body (hash : Hash) (s : MachineState) (level tree : Nat) (sid
       (∀ a, OutsideUpperLeaf side a → final.getMem a = s.getMem a) := by
   obtain ⟨ready, steps, cycles, calls, loop, hsteps, hcycles, hcalls, readyPC, _,
     readyData, endpoints, _, readySP, loopFrame⟩ := recover_all_chains hash s level tree side base message values
-      pc data counter aligned bound
+      small pc data counter aligned bound
   have words : ∀ i : Fin 92, ready.getMem (wordAddress 0x80800 i.val) =
       VerifyLeafHeaderDirect.endpointWord (recoveredEndpoint hash level tree side message values) i := by
     intro i

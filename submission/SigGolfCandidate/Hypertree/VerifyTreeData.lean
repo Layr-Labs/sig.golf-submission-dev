@@ -65,7 +65,7 @@ theorem recover_leaf_call (hash : Hash) (s : MachineState) (level tree base : Na
       change level % 2^64 = 0 at h
       omega
     obtain ⟨final, steps, cycles, calls, run, hsteps, hcycles, hcalls, fpc, fsp, output, frame⟩ :=
-      upper_leaf_call hash s level tree side base message signature pc sp
+      upper_leaf_call hash s level tree side base message signature small pc sp
         (data.upper s level tree base side message signature zero leaf) nonzero aligned (by omega)
     exact ⟨final, steps, cycles, calls+1, calls+12, run, hsteps, hcycles, by omega, by omega, fpc, fsp, output, frame⟩
 

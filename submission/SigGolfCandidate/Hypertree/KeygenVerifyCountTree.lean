@@ -32,7 +32,7 @@ theorem recover_leaf_call_exact (hash : Hash) (s : MachineState) (level tree bas
       change level % 2^64 = 0 at h
       omega
     obtain ⟨final, steps, cycles, calls, run, hsteps, hcycles, hcalls, fpc, fsp, output, frame, countEq⟩ :=
-      upper_leaf_call_exact hash s level tree side base message signature pc sp
+      upper_leaf_call_exact hash s level tree side base message signature small pc sp
         (data.upper s level tree base side message signature zero leaf) nonzero aligned (by omega)
     exact ⟨final, steps, cycles, calls+1, calls+12, run, hsteps, hcycles, by omega, by omega, fpc, fsp, output, frame, by rw [countEq,upper_leaf_calls level message zero]⟩
 

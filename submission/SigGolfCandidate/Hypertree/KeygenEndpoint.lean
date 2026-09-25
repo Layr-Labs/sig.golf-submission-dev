@@ -8,7 +8,8 @@ set_option maxRecDepth 4096
 
 set_option linter.unusedSimpArgs false
 
-def Code (image : Image) (p : Word) (offset : BitVec 13) : Prop :=
+def CodeAt (image : Image) (p : Word) (offset : BitVec 13)
+    (source0 source8 : BitVec 12) : Prop :=
   instructionAt image (p + 0) = some (.base (.LUI .x28 128)) ∧
   instructionAt image (p + 4) = some (.base (.ADDI .x28 .x28 1072)) ∧
   instructionAt image (p + 8) = some (.base (.LD .x6 .x28 0)) ∧
@@ -17,10 +18,10 @@ def Code (image : Image) (p : Word) (offset : BitVec 13) : Prop :=
   instructionAt image (p + 20) = some (.base (.ADDI .x10 .x10 2048)) ∧
   instructionAt image (p + 24) = some (.base (.ADD .x7 .x7 .x10)) ∧
   instructionAt image (p + 28) = some (.base (.LUI .x28 128)) ∧
-  instructionAt image (p + 32) = some (.base (.ADDI .x28 .x28 1296)) ∧
+  instructionAt image (p + 32) = some (.base (.ADDI .x28 .x28 source0)) ∧
   instructionAt image (p + 36) = some (.base (.LD .x10 .x28 0)) ∧
   instructionAt image (p + 40) = some (.base (.LUI .x28 128)) ∧
-  instructionAt image (p + 44) = some (.base (.ADDI .x28 .x28 1304)) ∧
+  instructionAt image (p + 44) = some (.base (.ADDI .x28 .x28 source8)) ∧
   instructionAt image (p + 48) = some (.base (.LD .x11 .x28 0)) ∧
   instructionAt image (p + 52) = some (.base (.SD .x7 .x10 0)) ∧
   instructionAt image (p + 56) = some (.base (.SD .x7 .x11 8)) ∧
@@ -31,10 +32,18 @@ def Code (image : Image) (p : Word) (offset : BitVec 13) : Prop :=
   instructionAt image (p + 76) = some (.base (.ADDI .x7 .x0 46)) ∧
   instructionAt image (p + 80) = some (.base (.BNE .x6 .x7 offset))
 
-instance (image : Image) (p : Word) (offset : BitVec 13) : Decidable (Code image p offset) :=
+instance (image : Image) (p : Word) (offset : BitVec 13) (source0 source8 : BitVec 12) :
+    Decidable (CodeAt image p offset source0 source8) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _))
 
-def state (s : MachineState) (offset : BitVec 13) : MachineState :=
+def Code (image : Image) (p : Word) (offset : BitVec 13) : Prop :=
+  CodeAt image p offset 1296 1304
+
+instance (image : Image) (p : Word) (offset : BitVec 13) : Decidable (Code image p offset) :=
+  inferInstanceAs (Decidable (CodeAt image p offset 1296 1304))
+
+def stateAt (s : MachineState) (offset : BitVec 13)
+    (source0 source8 : BitVec 12) : MachineState :=
   let s := execInstrBr s (.LUI .x28 128)
   let s := execInstrBr s (.ADDI .x28 .x28 1072)
   let s := execInstrBr s (.LD .x6 .x28 0)
@@ -43,10 +52,10 @@ def state (s : MachineState) (offset : BitVec 13) : MachineState :=
   let s := execInstrBr s (.ADDI .x10 .x10 2048)
   let s := execInstrBr s (.ADD .x7 .x7 .x10)
   let s := execInstrBr s (.LUI .x28 128)
-  let s := execInstrBr s (.ADDI .x28 .x28 1296)
+  let s := execInstrBr s (.ADDI .x28 .x28 source0)
   let s := execInstrBr s (.LD .x10 .x28 0)
   let s := execInstrBr s (.LUI .x28 128)
-  let s := execInstrBr s (.ADDI .x28 .x28 1304)
+  let s := execInstrBr s (.ADDI .x28 .x28 source8)
   let s := execInstrBr s (.LD .x11 .x28 0)
   let s := execInstrBr s (.SD .x7 .x10 0)
   let s := execInstrBr s (.SD .x7 .x11 8)
@@ -57,12 +66,18 @@ def state (s : MachineState) (offset : BitVec 13) : MachineState :=
   let s := execInstrBr s (.ADDI .x7 .x0 46)
   execInstrBr s (.BNE .x6 .x7 offset)
 
+def state (s : MachineState) (offset : BitVec 13) : MachineState :=
+  stateAt s offset 1296 1304
+
 def address (s : MachineState) : Word := (s.getMem 0x80430 <<< 4) + 0x80800
 
-theorem block (image : Image) (p : Word) (offset : BitVec 13) (code : Code image p offset)
+theorem blockAt (image : Image) (p : Word) (offset : BitVec 13)
+    (source0 source8 : BitVec 12) (code : CodeAt image p offset source0 source8)
     (s : MachineState) (pc : s.pc = p)
-    (safe : accessValid (address s) 8 = true) (safeNext : accessValid (address s + 8) 8 = true) :
-    OrdinarySteps image s 21 (state s offset) := by
+    (safe : accessValid (address s) 8 = true) (safeNext : accessValid (address s + 8) 8 = true)
+    (sourceValid0 : accessValid ((0x80000 : Word) + signExtend12 source0) 8 = true)
+    (sourceValid8 : accessValid ((0x80000 : Word) + signExtend12 source8) 8 = true) :
+    OrdinarySteps image s 21 (stateAt s offset source0 source8) := by
   simp only [address] at safe safeNext
   obtain ⟨c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18,c19,c20⟩ := code
   let s1 := execInstrBr s (.LUI .x28 128)
@@ -73,10 +88,10 @@ theorem block (image : Image) (p : Word) (offset : BitVec 13) (code : Code image
   let s6 := execInstrBr s5 (.ADDI .x10 .x10 2048)
   let s7 := execInstrBr s6 (.ADD .x7 .x7 .x10)
   let s8 := execInstrBr s7 (.LUI .x28 128)
-  let s9 := execInstrBr s8 (.ADDI .x28 .x28 1296)
+  let s9 := execInstrBr s8 (.ADDI .x28 .x28 source0)
   let s10 := execInstrBr s9 (.LD .x10 .x28 0)
   let s11 := execInstrBr s10 (.LUI .x28 128)
-  let s12 := execInstrBr s11 (.ADDI .x28 .x28 1304)
+  let s12 := execInstrBr s11 (.ADDI .x28 .x28 source8)
   let s13 := execInstrBr s12 (.LD .x11 .x28 0)
   let s14 := execInstrBr s13 (.SD .x7 .x10 0)
   let s15 := execInstrBr s14 (.SD .x7 .x11 8)
@@ -119,7 +134,7 @@ theorem block (image : Image) (p : Word) (offset : BitVec 13) (code : Code image
   · have hp : s7.pc = p + 28 := by simp [s1, s2, s3, s4, s5, s6, s7, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c7
   · rfl
-  apply OrdinarySteps.step s8 s9 _ (.base (.ADDI .x28 .x28 1296)) 12
+  apply OrdinarySteps.step s8 s9 _ (.base (.ADDI .x28 .x28 source0)) 12
   · have hp : s8.pc = p + 32 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c8
   · rfl
@@ -127,12 +142,13 @@ theorem block (image : Image) (p : Word) (offset : BitVec 13) (code : Code image
   · have hp : s9.pc = p + 36 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c9
   · simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, ordinaryStep, memoryArgumentsValid, execInstrBr, signExtend12,
-      accessValid,rangeValid,MEMORY_BYTES, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
+      MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
+    exact sourceValid0
   apply OrdinarySteps.step s10 s11 _ (.base (.LUI .x28 128)) 10
   · have hp : s10.pc = p + 40 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c10
   · rfl
-  apply OrdinarySteps.step s11 s12 _ (.base (.ADDI .x28 .x28 1304)) 9
+  apply OrdinarySteps.step s11 s12 _ (.base (.ADDI .x28 .x28 source8)) 9
   · have hp : s11.pc = p + 44 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c11
   · rfl
@@ -140,7 +156,8 @@ theorem block (image : Image) (p : Word) (offset : BitVec 13) (code : Code image
   · have hp : s12.pc = p + 48 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c12
   · simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, ordinaryStep, memoryArgumentsValid, execInstrBr, signExtend12,
-      accessValid,rangeValid,MEMORY_BYTES, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
+      MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
+    exact sourceValid8
   apply OrdinarySteps.step s13 s14 _ (.base (.SD .x7 .x10 0)) 7
   · have hp : s13.pc = p + 52 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c13
@@ -180,20 +197,54 @@ theorem block (image : Image) (p : Word) (offset : BitVec 13) (code : Code image
   · rfl
   exact OrdinarySteps.refl _
 
+theorem block (image : Image) (p : Word) (offset : BitVec 13)
+    (code : Code image p offset) (s : MachineState) (pc : s.pc = p)
+    (safe : accessValid (address s) 8 = true) (safeNext : accessValid (address s + 8) 8 = true) :
+    OrdinarySteps image s 21 (state s offset) :=
+  blockAt image p offset 1296 1304 code s pc safe safeNext (by decide) (by decide)
+
+theorem pcAt (s : MachineState) (offset : BitVec 13) (source0 source8 : BitVec 12) :
+    (stateAt s offset source0 source8).pc =
+      if s.getMem 0x80430 + 1 = 46 then s.pc+84 else s.pc+80+signExtend13 offset := by
+  simp [stateAt,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,
+    MachineState.getReg_setReg_ne,BitVec.add_assoc]
+
+theorem memAt (s : MachineState) (offset : BitVec 13) (source0 source8 : BitVec 12)
+    (a : Word) :
+    (stateAt s offset source0 source8).getMem a =
+      if a = 0x80430 then s.getMem 0x80430+1 else
+      if a = address s+8 then s.getMem ((0x80000 : Word) + signExtend12 source8) else
+      if a = address s then s.getMem ((0x80000 : Word) + signExtend12 source0) else s.getMem a := by
+  simp [stateAt,address,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,
+    MachineState.getReg_setReg_ne]
+  rfl
+
+theorem stackAt (s : MachineState) (offset : BitVec 13) (source0 source8 : BitVec 12) :
+    (stateAt s offset source0 source8).getReg .x1 = s.getReg .x1 ∧
+    (stateAt s offset source0 source8).getReg .x2 = s.getReg .x2 := by
+  simp [stateAt,execInstrBr,MachineState.getReg_setReg_ne]
+
+theorem stickyRegsAt (s : MachineState) (offset : BitVec 13)
+    (source0 source8 : BitVec 12) :
+    (stateAt s offset source0 source8).getReg .x5 = s.getReg .x5 ∧
+    (stateAt s offset source0 source8).getReg .x12 = s.getReg .x12 ∧
+    (stateAt s offset source0 source8).getReg .x31 = s.getReg .x31 := by
+  simp [stateAt,execInstrBr,MachineState.getReg_setReg_ne]
+
 theorem pc (s : MachineState) (offset : BitVec 13) :
     (state s offset).pc = if s.getMem 0x80430 + 1 = 46 then s.pc+84 else s.pc+80+signExtend13 offset := by
-  simp [state,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne,BitVec.add_assoc]
+  simp [state,stateAt,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne,BitVec.add_assoc]
 
 theorem mem (s : MachineState) (offset : BitVec 13) (a : Word) :
     (state s offset).getMem a = if a = 0x80430 then s.getMem 0x80430+1 else
       if a = address s+8 then s.getMem 0x80518 else
       if a = address s then s.getMem 0x80510 else s.getMem a := by
-  simp [state,address,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
+  simp [state,stateAt,address,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
   rfl
 
 theorem stack (s : MachineState) (offset : BitVec 13) :
     (state s offset).getReg .x1 = s.getReg .x1 ∧ (state s offset).getReg .x2 = s.getReg .x2 := by
-  simp [state,execInstrBr,MachineState.getReg_setReg_ne]
+  simp [state,stateAt,execInstrBr,MachineState.getReg_setReg_ne]
 
 theorem keygen_code : Code keygen 0x14f4 (-832) := by decide
 
