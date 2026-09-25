@@ -1,10 +1,10 @@
 import SigGolfCandidate.Hypertree.ChecksumBound
 
 /-!
-Propagate the checksum-aware chain bound through the exact original bytecode.
-Each upper layer saves 14 × 103 = 1,442 cycles relative to TightCertificate,
-and there are 159 such layers. The bottom-layer bound remains 287 cycles.
-This lowers the certificate by 229,278 cycles without changing any image.
+Propagate the checksum-aware chain bound through the verifier bytecode.
+The direct hash output removes sixteen instructions per upper-layer chain hash.
+Each of the 159 upper layers makes at most 308 such calls, saving 783,552 cycles
+over the preceding certificate. The bottom-layer bound is unchanged.
 -/
 
 namespace SigGolfCandidate.Hypertree.ChecksumVerifying
@@ -19,7 +19,7 @@ theorem leaf_loop_exact (hash : Hash) (s : MachineState) (level tree : Nat) (sid
     (completed : EndpointPrefix s (recoveredEndpoint hash level tree side message values) start)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
-      steps ≤ 721*remaining ∧ cycles = 103*calls + 49*remaining ∧ calls ≤ 7*remaining ∧ final.pc = 0x1690 ∧
+      steps ≤ 721*remaining ∧ cycles = 87*calls + 49*remaining ∧ calls ≤ 7*remaining ∧ final.pc = 0x1690 ∧
       final.getMem 0x80430 = 46 ∧ LeafData final level tree side base message values ∧
       EndpointPrefix final (recoveredEndpoint hash level tree side message values) 46 ∧
       final.getReg .x1 = s.getReg .x1 ∧ final.getReg .x2 = s.getReg .x2 ∧
@@ -60,8 +60,8 @@ theorem leaf_loop_exact (hash : Hash) (s : MachineState) (level tree : Nat) (sid
     obtain ⟨final, steps, cycles, calls, run, hsteps, hcycles, hcalls, finalPC, finalCounter,
       finalData, finalPrefix, finalRA, finalSP, finalFrame, exactCalls⟩ :=
       ih next (start+1) (by omega) nextPC nextData nextCounter nextPrefix
-    refine ⟨final, (96*(7-(Reference.digit message chain).val)+49)+steps,
-      (103*(7-(Reference.digit message chain).val)+49)+cycles,
+    refine ⟨final, (80*(7-(Reference.digit message chain).val)+49)+steps,
+      (87*(7-(Reference.digit message chain).val)+49)+cycles,
       (7-(Reference.digit message chain).val)+calls, pre.trans run, ?_, ?_, ?_,
       finalPC, finalCounter, finalData, finalPrefix, finalRA.trans nextRA, finalSP.trans nextSP, ?_, ?_⟩
     · omega
@@ -80,7 +80,7 @@ theorem recover_all_chains (hash : Hash) (s : MachineState) (level tree : Nat) (
     (pc : s.pc = 0x1490) (data : LeafData s level tree side base message values)
     (counter : s.getMem 0x80430 = 0) (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
-      steps ≤ 33166 ∧ cycles ≤ 33978 ∧ calls ≤ 322 ∧ final.pc = 0x1690 ∧
+      steps ≤ 33166 ∧ cycles ≤ 29050 ∧ calls ≤ 322 ∧ final.pc = 0x1690 ∧
       final.getMem 0x80430 = 46 ∧ LeafData final level tree side base message values ∧
       (∀ chain : Reference.Chain, ∀ i : Fin 2,
         final.getMem (KeygenEndpoint.endpointAddress chain.val i.val) =
@@ -101,7 +101,7 @@ theorem upper_leaf_body (hash : Hash) (s : MachineState) (level tree : Nat) (sid
     (counter : s.getMem 0x80430 = 0) (sp : s.getReg .x2 = 0xffffe0)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles (calls+1) (calls+12) final ∧
-      steps ≤ 33781 ∧ cycles ≤ 34688 ∧ calls ≤ 322 ∧
+      steps ≤ 33781 ∧ cycles ≤ 29760 ∧ calls ≤ 322 ∧
       final.pc = s.getMem 0xffffe0 &&& ~~~1#64 ∧ final.getReg .x2 = 0xfffff0 ∧
       (∀ i : Fin 2, final.getMem (KeygenSavePublic.wordAddress side i.val) =
         (Reference.compressLeaf hash level tree side (recoveredEndpoint hash level tree side message values)).extractLsb' (64*i.val) 64) ∧
@@ -136,7 +136,7 @@ theorem upper_leaf_call (hash : Hash) (s : MachineState) (level tree : Nat) (sid
     (data : LeafData s level tree side base message signature.values)
     (nonzero : BitVec.ofNat 64 level ≠ 0) (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles (calls+1) (calls+12) final ∧
-      steps ≤ 33795 ∧ cycles ≤ 34702 ∧ calls ≤ 322 ∧
+      steps ≤ 33795 ∧ cycles ≤ 29774 ∧ calls ≤ 322 ∧
       final.pc = s.getReg .x1 &&& ~~~1#64 ∧ final.getReg .x2 = s.getReg .x2 ∧
       (∀ i : Fin 2, final.getMem (KeygenSavePublic.wordAddress side i.val) =
         (Reference.recoverLeaf hash level tree side message signature).extractLsb' (64*i.val) 64) ∧
@@ -165,7 +165,7 @@ theorem recover_leaf_call (hash : Hash) (s : MachineState) (level tree base : Na
     (leaf : s.getMem 0x80428 = BitVec.ofNat 64 (Reference.sideNumber side))
     (small : level < 160) (aligned : base % 8 = 0) (bound : base+752 ≤ 0x80000) :
     ∃ final steps cycles calls blocks, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 33795 ∧ cycles ≤ (if level = 0 then 116 else 34702) ∧ calls ≤ 323 ∧ blocks ≤ 334 ∧
+      steps ≤ 33795 ∧ cycles ≤ (if level = 0 then 116 else 29774) ∧ calls ≤ 323 ∧ blocks ≤ 334 ∧
       final.pc = s.getReg .x1 &&& ~~~1#64 ∧ final.getReg .x2 = s.getReg .x2 ∧
       (∀ i : Fin 2, final.getMem (KeygenSavePublic.wordAddress side i.val) =
         (Reference.recoverLeaf hash level tree side message signature).extractLsb' (64*i.val) 64) ∧
@@ -177,7 +177,8 @@ theorem recover_leaf_call (hash : Hash) (s : MachineState) (level tree base : Na
     refine ⟨final, 109, 116, 1, 1, run, by decide, by decide, by decide, by decide, fpc, fsp, output, ?_⟩
     intro a hs outside
     apply frame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2
-    exact ⟨fun i => outside.1.1 ⟨i.val, by have := i.isLt; omega⟩, outside.1.2.1, outside.1.2.2.1, outside.2⟩
+    exact ⟨fun i => outside.1.1 ⟨i.val, by have := i.isLt; omega⟩, outside.1.2.1,
+      (fun i => outside.1.2.2.1 ⟨i.val, by omega⟩), outside.2⟩
   · have nonzero : BitVec.ofNat 64 level ≠ 0 := by
       intro eq
       have h := congrArg BitVec.toNat eq
@@ -194,7 +195,7 @@ theorem recover_tree_call (hash : Hash) (s : MachineState) (level tree base : Na
     (data : LayerData s level tree base side message signature)
     (small : level < 160) (aligned : base % 8 = 0) (bound : base+752 ≤ 0x80000) :
     ∃ final steps cycles calls blocks, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 33908 ∧ cycles ≤ (if level = 0 then 236 else 34822) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
+      steps ≤ 33908 ∧ cycles ≤ (if level = 0 then 235 else 29894) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
       final.pc = s.getReg .x1 &&& ~~~1#64 ∧ final.getReg .x2 = s.getReg .x2 ∧
       (∀ i : Fin 2, final.getMem (wordAddress 0x80500 i.val) =
         (Reference.recoverLayer hash level tree side message signature).extractLsb' (64*i.val) 64) ∧
@@ -214,7 +215,7 @@ theorem recover_tree_call (hash : Hash) (s : MachineState) (level tree base : Na
     intro a outside
     exact leafFrame a outside.2.2.2.2.1 ⟨outside.1, outside.2.1 side⟩
   obtain ⟨final, postSteps, postCycles, post, psteps, pcycles, finalPC, finalSP, current, postFrame⟩ :=
-    finish_tree hash recovered level tree base side message signature recoveredPC recoveredSP small aligned bound
+    finish_tree_tight hash recovered level tree base side message signature recoveredPC recoveredSP small aligned bound
       recoveredData.levelEq recoveredData.indexEq recoveredData.pointerEq recoveredData.selectorEq output recoveredData.siblingEq
   refine ⟨final, 9+leafSteps+postSteps, 9+leafCycles+postCycles, leafCalls+1, leafBlocks+1,
     ?_, by omega, by split_ifs at * <;> omega, by omega, by omega, ?_, ?_, current, ?_⟩
@@ -234,7 +235,7 @@ theorem verify_layer_tree (hash : Hash) (s : MachineState) (level index : Nat) (
     (data : LoopData s level index current witness)
     (selector : s.getMem 0x80420 = BitVec.ofNat 64 (Reference.sideNumber side)) :
     ∃ final steps cycles calls blocks, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 34368 ∧ cycles ≤ (if level = 0 then 241 else 35282) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
+      steps ≤ 34368 ∧ cycles ≤ (if level = 0 then 240 else 30354) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
       final.pc = 0x11d4 ∧
       LoopData final level index (Reference.recoverLayer hash level index side current (wireLayer witness level)) witness ∧
       LowFrame s final := by
@@ -261,7 +262,7 @@ theorem verify_layer (hash : Hash) (s : MachineState) (level index : Nat)
     (pc : s.pc = 0x1148) (small : level < 160) (indexSmall : index < 2^192)
     (data : LoopData s level index current witness) :
     ∃ final steps cycles calls blocks, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 34415 ∧ cycles ≤ (if level = 0 then 287 else 35329) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
+      steps ≤ 34415 ∧ cycles ≤ (if level = 0 then 286 else 30401) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
       final.pc = (if level+1 = 160 then 0x1220 else 0x1148) ∧
       LoopData final (level+1) (index/2)
         (Reference.recoverLayer hash level (index/2) (index%2 == 1) current (wireLayer witness level)) witness ∧
@@ -290,7 +291,7 @@ theorem verify_layers (hash : Hash) (witness : Bytes signatureBytes) (count leve
     (pc : s.pc = if count = 0 then 0x1220 else 0x1148)
     (data : LoopData s level index current witness) :
     ∃ final steps cycles calls blocks lastIndex, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 34415*count ∧ cycles ≤ 35329*count - (if level = 0 then 35042 else 0) ∧ calls ≤ 324*count ∧ blocks ≤ 335*count ∧
+      steps ≤ 34415*count ∧ cycles ≤ 30401*count - (if level = 0 then 30115 else 0) ∧ calls ≤ 324*count ∧ blocks ≤ 335*count ∧
       final.pc = 0x1220 ∧
       LoopData final 160 lastIndex (Reference.recoverLayers hash level index current (wireLayers witness count level)) witness ∧
       LowFrame s final := by
@@ -319,7 +320,7 @@ theorem loaded_recovery (hash : Hash) (pk : PublicKey) (message : Message) (witn
     ∃ initial recovered steps cycles calls blocks,
       initialState submission .verify (message, pk, witness) = some initial ∧
       Trace hash verify initial steps cycles calls blocks recovered ∧
-      steps ≤ 5506530 ∧ cycles ≤ 5617743 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
+      steps ≤ 5506530 ∧ cycles ≤ 4834190 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
       recovered.pc = 0x1220 ∧
       (RootMatches recovered ↔ Reference.verify hash pk message (SignatureEncoding.decode witness).toReference) := by
   obtain ⟨initial, ready, loaded, pre, pc, data, preFrame⟩ := loaded_loop_data hash pk message witness
@@ -330,7 +331,7 @@ theorem loaded_recovery (hash : Hash) (pk : PublicKey) (message : Message) (witn
     omega
   obtain ⟨recovered, steps, cycles, calls, blocks, lastIndex, run, hsteps, hcycles, hcalls, hblocks, finalPC, finalData, frame⟩ :=
     verify_layers hash witness 160 0 index ready 0 rfl indexSmall (by simpa using pc) data
-  change cycles ≤ 5617598 at hcycles
+  change cycles ≤ 4834045 at hcycles
   have allFrame := preFrame.trans initial ready recovered frame
   have pkWords : ∀ i : Fin 2, recovered.getMem (wordAddress 0x40 i.val) = pk.extractLsb' (64*i.val) 64 := by
     intro i
@@ -348,7 +349,7 @@ theorem loaded_recovery (hash : Hash) (pk : PublicKey) (message : Message) (witn
   rfl
 
 theorem run_refines (hash : Hash) (pk : PublicKey) (message : Message) (witness : Bytes signatureBytes) :
-    ∃ cycles calls blocks, cycles ≤ 5617758 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
+    ∃ cycles calls blocks, cycles ≤ 4834205 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
       submission.runWith hash .verify (message, pk, witness) =
         ⟨if Reference.verify hash pk message (SignatureEncoding.decode witness).toReference then some () else none,
           true, cycles, calls, blocks⟩ := by
@@ -377,7 +378,7 @@ open SigGolf OracleComp KeygenOrganizer SignatureEncoding Candidate
 set_option maxRecDepth 4096
 
 theorem honest_exact (hash : Hash) (secretKey : SecretKey) (message : Message) :
-    ∃ cycles calls blocks, cycles≤5617758 ∧ calls≤51841 ∧ blocks≤53602 ∧
+    ∃ cycles calls blocks, cycles≤4834205 ∧ calls≤51841 ∧ blocks≤53602 ∧
       evalWithAnswerFn hash (submission.honest secretKey message)=
         ⟨true,fun phase => match phase with | .keygen => 761 | .sign => 121008 | .expand => 0 | .verify => blocks,cycles⟩ := by
   let pk := Reference.keygen hash secretKey
@@ -397,7 +398,7 @@ theorem honest_exact (hash : Hash) (secretKey : SecretKey) (message : Message) :
     82446 739 761 signCycles 117508 121008 89733 0 0 cycles calls blocks
     (KeygenFunctional.run_exact hash secretKey) signRun (expand_exact hash message pk signature) verifyRun
 
-theorem verificationBound : submission.VerificationBound 5617758 := by
+theorem verificationBound : submission.VerificationBound 4834205 := by
   intro hash secretKey message
   dsimp only
   intro _
@@ -405,8 +406,8 @@ theorem verificationBound : submission.VerificationBound 5617758 := by
   rw [run]
   exact cycleBound
 
-/-- Checksum-aware certificate for the original images, retaining the cheap bottom-layer bound. -/
-theorem certificate : SigGolf.Certificate submission 5617758 :=
+/-- Checksum-aware certificate for the direct-output verifier, retaining the cheap bottom-layer bound. -/
+theorem certificate : SigGolf.Certificate submission 4834205 :=
   ⟨admitted, Candidate.termination, Candidate.completeness, Candidate.compressionBounds,
     Candidate.security, verificationBound⟩
 

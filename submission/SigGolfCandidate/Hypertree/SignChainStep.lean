@@ -5,6 +5,12 @@ namespace SigGolfCandidate.Hypertree.Signing
 open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 Keygen ChainLoopControl Verifying
 set_option maxRecDepth 4096
 
+/-- The signer writes only the two-word chain value, so its frame preserves both public slots. -/
+def OutsideChainWork (a : Word) : Prop :=
+  (∀ i : Fin 8, a ≠ wordAddress 0x80000 i.val) ∧
+  (∀ i : Fin 4, a ≠ wordAddress 0x80300 i.val) ∧
+  (∀ i : Fin 2, a ≠ wordAddress 0x80510 i.val) ∧ a ≠ 0x80438
+
 theorem sign_chain_check : CheckCode sign 0x1724 := by decide
 theorem sign_chain_code : KeygenChain.Code sign 0x1738 := by decide
 theorem sign_chain_increment : IncrementCode sign 0x1854 (-472) := by decide
@@ -59,7 +65,8 @@ theorem chain_core_step (hash : Hash) (s : MachineState) (level tree step : Nat)
   · exact (increment_stack hashed (-472)).1.trans (ra.trans (check_stack s).1)
   · exact (increment_stack hashed (-472)).2.trans (sp.trans (check_stack s).2)
   · intro a outside
-    rw [increment_mem, if_neg outside.2.2.2, keep a (fun i => outside.1 ⟨i.val, by omega⟩) outside.2.1 outside.2.2.1]
+    rw [increment_mem, if_neg outside.2.2.2, keep a (fun i => outside.1 ⟨i.val, by omega⟩)
+      outside.2.1 outside.2.2.1]
 
 
 end SigGolfCandidate.Hypertree.Signing

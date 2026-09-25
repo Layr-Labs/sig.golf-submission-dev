@@ -56,8 +56,8 @@ theorem leaf_loop (hash : Hash) (s : MachineState) (level tree : Nat) (side : Bo
     obtain ⟨final, steps, cycles, calls, run, hsteps, hcycles, hcalls, finalPC, finalCounter,
       finalData, finalPrefix, finalRA, finalSP, finalFrame⟩ :=
       ih next (start+1) (by omega) nextPC nextData nextCounter nextPrefix
-    refine ⟨final, (96*(7-(Reference.digit message chain).val)+49)+steps,
-      (103*(7-(Reference.digit message chain).val)+49)+cycles,
+    refine ⟨final, (80*(7-(Reference.digit message chain).val)+49)+steps,
+      (87*(7-(Reference.digit message chain).val)+49)+cycles,
       (7-(Reference.digit message chain).val)+calls, pre.trans run, ?_, ?_, ?_,
       finalPC, finalCounter, finalData, finalPrefix, finalRA.trans nextRA, finalSP.trans nextSP, ?_⟩
     · omega

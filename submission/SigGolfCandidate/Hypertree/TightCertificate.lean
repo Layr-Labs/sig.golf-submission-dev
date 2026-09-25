@@ -35,7 +35,8 @@ theorem recover_leaf_call (hash : Hash) (s : MachineState) (level tree base : Na
     refine ⟨final, 109, 116, 1, 1, run, by decide, by decide, by decide, by decide, fpc, fsp, output, ?_⟩
     intro a hs outside
     apply frame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2
-    exact ⟨fun i => outside.1.1 ⟨i.val, by have := i.isLt; omega⟩, outside.1.2.1, outside.1.2.2.1, outside.2⟩
+    exact ⟨fun i => outside.1.1 ⟨i.val, by have := i.isLt; omega⟩, outside.1.2.1,
+      (fun i => outside.1.2.2.1 ⟨i.val, by omega⟩), outside.2⟩
   · have nonzero : BitVec.ofNat 64 level ≠ 0 := by
       intro eq
       have h := congrArg BitVec.toNat eq

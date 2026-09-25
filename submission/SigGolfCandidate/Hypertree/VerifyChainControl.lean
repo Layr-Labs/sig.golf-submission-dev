@@ -1,3 +1,4 @@
+import SigGolfCandidate.Hypertree.VerifyChainDirect
 import SigGolfCandidate.Hypertree.ChainLoopControl
 
 namespace SigGolfCandidate.Hypertree.Verifying
@@ -8,6 +9,6 @@ theorem verify_chain_check : ChainLoopControl.CheckCode verify 0x14ec := by deci
 
 theorem verify_chain_increment : ChainLoopControl.IncrementCode verify 0x161c (-332) := by decide
 
-theorem verify_chain_code : KeygenChain.Code verify 0x1500 := by decide
+theorem verify_chain_code : VerifyChainDirect.Code verify 0x1500 := VerifyChainDirect.verify_code
 
 end SigGolfCandidate.Hypertree.Verifying

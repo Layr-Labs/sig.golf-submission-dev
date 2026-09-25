@@ -12,7 +12,7 @@ def OutsideParentWork (side : Bool) (a : Word) : Prop :=
   (∀ i : Fin 2, a ≠ KeygenSavePublic.wordAddress (!side) i.val)
 
 /-- The real sibling load, parent hash, and protected return recover one witness layer. -/
-theorem finish_tree (hash : Hash) (s : MachineState) (level tree base : Nat) (side : Bool)
+theorem finish_tree_tight (hash : Hash) (s : MachineState) (level tree base : Nat) (side : Bool)
     (message : Reference.Digest) (signature : Reference.LayerSignature)
     (pc : s.pc = 0x1314) (sp : s.getReg .x2 = 0xfffff0)
     (small : level < 160) (aligned : base % 8 = 0) (bound : base+752 ≤ 0x80000)
@@ -26,7 +26,8 @@ theorem finish_tree (hash : Hash) (s : MachineState) (level tree base : Nat) (si
     (witness : ∀ i : Fin 2, s.getMem (BitVec.ofNat 64 (base+siblingOffset level+8*i.val)) =
       signature.sibling.extractLsb' (64*i.val) 64) :
     ∃ final steps cycles, Trace hash verify s steps cycles 1 1 final ∧
-      steps ≤ 104 ∧ cycles ≤ 111 ∧ final.pc = s.getMem 0xfffff0 &&& ~~~1#64 ∧
+      steps ≤ 104 ∧ cycles ≤ (if level = 0 then 110 else 111) ∧
+      final.pc = s.getMem 0xfffff0 &&& ~~~1#64 ∧
       final.getReg .x2 = 0x1000000 ∧
       (∀ i : Fin 2, final.getMem (wordAddress 0x80500 i.val) =
         (Reference.recoverLayer hash level tree side message signature).extractLsb' (64*i.val) 64) ∧
@@ -55,7 +56,14 @@ theorem finish_tree (hash : Hash) (s : MachineState) (level tree base : Nat) (si
   refine ⟨final, n+83, n+90, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simpa only [Nat.zero_add] using pre.trace.trans post
   · dsimp [n]; split <;> decide
-  · dsimp [n]; split <;> decide
+  · by_cases zero : level = 0
+    · subst level
+      have zeroWord : s.getMem 0x80400 = 0 := by simpa using levelEq
+      simp only [n, if_pos zeroWord]
+      decide
+    · simp only [if_neg zero]
+      dsimp [n]
+      split <;> decide
   · rw [fpc, loadedSP, frame _ (by cases side <;> decide)]
   · rw [fsp, loadedSP]; rfl
   · intro i
@@ -63,6 +71,35 @@ theorem finish_tree (hash : Hash) (s : MachineState) (level tree base : Nat) (si
     cases side <;> simpa only [Reference.recoverLayer, Bool.false_eq_true, if_false, if_true] using value
   · intro a outside
     rw [out a outside.1 outside.2.1 outside.2.2.1, frame a outside.2.2.2]
+
+/-- The uniform bound used by the existing bytecode refinement lemmas. -/
+theorem finish_tree (hash : Hash) (s : MachineState) (level tree base : Nat) (side : Bool)
+    (message : Reference.Digest) (signature : Reference.LayerSignature)
+    (pc : s.pc = 0x1314) (sp : s.getReg .x2 = 0xfffff0)
+    (small : level < 160) (aligned : base % 8 = 0) (bound : base+752 ≤ 0x80000)
+    (levelEq : s.getMem 0x80400 = BitVec.ofNat 64 level)
+    (indexEq : ∀ i : Fin 3, s.getMem (wordAddress 0x80408 i.val) =
+      (BitVec.ofNat 192 tree).extractLsb' (64*i.val) 64)
+    (pointer : s.getMem 0x80448 = BitVec.ofNat 64 base)
+    (selector : s.getMem 0x80420 = BitVec.ofNat 64 (Reference.sideNumber side))
+    (leaf : ∀ i : Fin 2, s.getMem (KeygenSavePublic.wordAddress side i.val) =
+      (Reference.recoverLeaf hash level tree side message signature).extractLsb' (64*i.val) 64)
+    (witness : ∀ i : Fin 2, s.getMem (BitVec.ofNat 64 (base+siblingOffset level+8*i.val)) =
+      signature.sibling.extractLsb' (64*i.val) 64) :
+    ∃ final steps cycles, Trace hash verify s steps cycles 1 1 final ∧
+      steps ≤ 104 ∧ cycles ≤ 111 ∧ final.pc = s.getMem 0xfffff0 &&& ~~~1#64 ∧
+      final.getReg .x2 = 0x1000000 ∧
+      (∀ i : Fin 2, final.getMem (wordAddress 0x80500 i.val) =
+        (Reference.recoverLayer hash level tree side message signature).extractLsb' (64*i.val) 64) ∧
+      (∀ a, OutsideParentWork side a → final.getMem a = s.getMem a) := by
+  obtain ⟨final, steps, cycles, run, hsteps, hcycles, hpc, hsp, hout, hframe⟩ :=
+    finish_tree_tight hash s level tree base side message signature pc sp small aligned bound
+      levelEq indexEq pointer selector leaf witness
+  refine ⟨final, steps, cycles, run, hsteps, ?_, hpc, hsp, hout, hframe⟩
+  by_cases zero : level = 0
+  · simp only [if_pos zero] at hcycles
+    omega
+  · simpa only [if_neg zero] using hcycles
 
 /-- info: 'SigGolfCandidate.Hypertree.Verifying.finish_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
