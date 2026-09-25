@@ -376,6 +376,10 @@ theorem regs (s : MachineState) :
     (state s).getReg .x11 = 384 ∧ (state s).getReg .x12 = 0x80020 := by
   simp [state,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
 
+theorem chain_reg (s : MachineState) :
+    (state s).getReg .x6 = s.getReg .x6 := by
+  simp [state,execInstrBr,MachineState.getReg_setReg_ne]
+
 theorem mem (s : MachineState) (a : Word) :
     (state s).getMem a =
       if a = 0x80018 then s.getMem 0x80418 else

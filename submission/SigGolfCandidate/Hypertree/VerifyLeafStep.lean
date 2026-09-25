@@ -21,8 +21,9 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       steps ≤ cycles ∧
       cycles ≤ 11*calls+19+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
-      recovered.pc = 0x163c ∧
+      recovered.pc = 0x1640 ∧
       recovered.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
+      recovered.getReg .x6 = BitVec.ofNat 64 chain.val ∧
       (∀ i : Fin 2, recovered.getMem (wordAddress 0x80020 i.val) =
         (recoveredEndpoint hash level tree side message values chain).extractLsb' (64*i.val) 64) ∧
       Hoist.HeaderWordCarry recovered level tree (Reference.sideNumber side) ∧
@@ -31,7 +32,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       (∀ a, OutsideChainWork a → recovered.getMem a = s.getMem a)) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+32+(if chain.val=0 then 49 else 0) ∧
+      cycles ≤ 11*calls+31+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
@@ -44,18 +45,18 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
         (∀ i : Fin 2, a ≠ KeygenEndpoint.endpointAddress chain.val i.val) →
         final.getMem a = s.getMem a) := by
   obtain ⟨recovered, fragSteps, fragCycles, fragCalls, frag, fragStepBound,
-    fragCycleBound, fragCallsEq, recoveredPC, recoveredCounter, words, carry,
+    fragCycleBound, fragCallsEq, recoveredPC, recoveredCounter, recoveredChain, words, carry,
     recoveredRA, recoveredSP, recoveredFrame⟩ := fragment
   obtain ⟨final, store, finalEntry, finalCounter, endpoints, storeRA, storeSP,
     storeFrame, finalCarry⟩ :=
     store_endpoint_with_word_carry recovered level tree (Reference.sideNumber side)
       chain (recoveredEndpoint hash level tree side message values chain)
-      recoveredPC recoveredCounter words carry
+      recoveredPC recoveredCounter recoveredChain words carry
   have frame (a : Word) (outside : OutsideChainWork a) (notCounter : a ≠ 0x80430)
       (notEndpoint : ∀ i : Fin 2, a ≠ KeygenEndpoint.endpointAddress chain.val i.val) :
       final.getMem a = s.getMem a :=
     (storeFrame a notCounter notEndpoint).trans (recoveredFrame a outside)
-  refine ⟨final, fragSteps+13, fragCycles+13, fragCalls, frag.trans store.trace,
+  refine ⟨final, fragSteps+12, fragCycles+12, fragCalls, frag.trans store.trace,
     by omega, by omega, fragCallsEq, finalEntry, finalCounter, ?_, endpoints,
     finalCarry, storeRA.trans recoveredRA, storeSP.trans recoveredSP, frame⟩
   exact data.transfer s final level tree side base message values bound (fun a outside =>
@@ -74,7 +75,7 @@ theorem leaf_step_fast (hash : Hash) (s : MachineState) (level tree : Nat)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+32+(if chain.val=0 then 49 else 0) ∧
+      cycles ≤ 11*calls+31+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧

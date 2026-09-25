@@ -10,8 +10,7 @@ set_option maxHeartbeats 200000
 set_option linter.unusedSimpArgs false
 
 def CodeAt (image : Image) : Prop :=
-  instructionAt image 0x163c = some (.base (.LUI .x28 128)) ∧
-  instructionAt image 0x1640 = some (.base (.LD .x6 .x28 1072)) ∧
+  instructionAt image 0x1640 = some (.base (.LUI .x28 128)) ∧
   instructionAt image 0x1644 = some (.base (.SLLI .x7 .x6 4)) ∧
   instructionAt image 0x1648 = some (.base (.ADD .x7 .x7 .x12)) ∧
   instructionAt image 0x164c = some (.base (.LD .x10 .x28 32)) ∧
@@ -31,7 +30,6 @@ theorem verify_code : CodeAt verify := by
 
 def core (s : MachineState) : MachineState :=
   let s := execInstrBr s (.LUI .x28 128)
-  let s := execInstrBr s (.LD .x6 .x28 1072)
   let s := execInstrBr s (.SLLI .x7 .x6 4)
   let s := execInstrBr s (.ADD .x7 .x7 .x12)
   let s := execInstrBr s (.LD .x10 .x28 32)
@@ -48,15 +46,16 @@ def stateAt (s : MachineState) : MachineState :=
     execInstrBr branched (.JAL .x0 36)
   else execInstrBr branched (.JAL .x0 (-472))
 
-theorem state_pc (s : MachineState) (pc : s.pc = 0x163c) :
+theorem state_pc (s : MachineState) (pc : s.pc = 0x1640)
+    (counterReg : s.getReg .x6 = s.getMem 0x80430) :
     (stateAt s).pc = if s.getMem 0x80430 + 1 = 46 then 0x1690 else 0x1498 := by
-  simp [stateAt, core, execInstrBr, pc, signExtend12, signExtend13, signExtend21,
+  simp [stateAt, core, execInstrBr, pc, counterReg, signExtend12, signExtend13, signExtend21,
     MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
   split_ifs <;> decide
 
 theorem state_regs (s : MachineState) :
     (stateAt s).getReg .x28 = 0x80000 ∧
-    (stateAt s).getReg .x6 = s.getMem 0x80430 + 1 ∧
+    (stateAt s).getReg .x6 = s.getReg .x6 + 1 ∧
     (stateAt s).getReg .x7 = 46 ∧
     (stateAt s).getReg .x10 = s.getMem 0x80020 ∧
     (stateAt s).getReg .x11 = s.getMem 0x80028 := by
@@ -82,10 +81,11 @@ theorem address_relative_next (s : MachineState)
   congr 1
 
 theorem state_mem (s : MachineState)
-    (destination : s.getReg .x12 = 0x80020) (a : Word) :
+    (destination : s.getReg .x12 = 0x80020)
+    (counterReg : s.getReg .x6 = s.getMem 0x80430) (a : Word) :
     (stateAt s).getMem a = (KeygenEndpoint.stateAt s (-508) 32 40).getMem a := by
   simp [stateAt, core, KeygenEndpoint.stateAt, execInstrBr, signExtend12,
-    destination, BitVec.add_assoc,
+    destination, counterReg, BitVec.add_assoc,
     MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
 
 theorem state_stack (s : MachineState) :
@@ -101,8 +101,9 @@ theorem state_sticky (s : MachineState) :
 
 theorem state_post (s : MachineState) (chain : Reference.Chain)
     (value : Reference.Digest)
-    (pc : s.pc = 0x163c)
+    (pc : s.pc = 0x1640)
     (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
+    (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
     (destination : s.getReg .x12 = 0x80020)
     (valueWords : ∀ i : Fin 2,
       s.getMem (wordAddress 0x80020 i.val) = value.extractLsb' (64*i.val) 64) :
@@ -115,6 +116,8 @@ theorem state_post (s : MachineState) (chain : Reference.Chain)
     (∀ a, a ≠ 0x80430 →
       (∀ i : Fin 2, a ≠ KeygenEndpoint.endpointAddress chain.val i.val) →
       (stateAt s).getMem a = s.getMem a) := by
+  have counterReg : s.getReg .x6 = s.getMem 0x80430 :=
+    chainReg.trans counter.symm
   have addr : KeygenEndpoint.address s = KeygenEndpoint.endpointAddress chain.val 0 := by
     simpa only [KeygenEndpoint.endpointAddress, Nat.mul_zero, Nat.add_zero] using
       KeygenEndpoint.address_eq s chain.val counter
@@ -157,11 +160,11 @@ theorem state_post (s : MachineState) (chain : Reference.Chain)
   have src8 : ((0x80000 : Word) + signExtend12 (40 : BitVec 12)) =
       wordAddress 0x80020 1 := by decide
   refine ⟨?_, ?_, ?_, (state_stack s).1, (state_stack s).2, ?_⟩
-  · rw [state_pc s pc]
+  · rw [state_pc s pc counterReg]
     simp only [eq]
-  · rw [state_mem s destination, KeygenEndpoint.memAt, if_pos rfl, inc]
+  · rw [state_mem s destination counterReg, KeygenEndpoint.memAt, if_pos rfl, inc]
   · intro i
-    rw [state_mem s destination, KeygenEndpoint.memAt, if_neg (neCounter i), addr8, addr]
+    rw [state_mem s destination counterReg, KeygenEndpoint.memAt, if_neg (neCounter i), addr8, addr]
     fin_cases i
     · rw [if_neg separate, if_pos rfl]
       rw [src0]
@@ -172,20 +175,23 @@ theorem state_post (s : MachineState) (chain : Reference.Chain)
   · intro a hc outside
     have h0 : a ≠ KeygenEndpoint.endpointAddress chain.val 0 := outside 0
     have h1 : a ≠ KeygenEndpoint.endpointAddress chain.val 1 := outside 1
-    rw [state_mem s destination, KeygenEndpoint.memAt, if_neg hc, addr8, if_neg h1, addr, if_neg h0]
+    rw [state_mem s destination counterReg, KeygenEndpoint.memAt, if_neg hc, addr8, if_neg h1, addr, if_neg h0]
 
 
-/-- The x12-relative endpoint uses thirteen ordinary instructions. -/
+/-- The x12-relative endpoint reuses the live chain register in twelve instructions. -/
 theorem block (image : Image) (code : CodeAt image) (s : MachineState)
     (chain : Reference.Chain)
-    (pc : s.pc = 0x163c)
+    (pc : s.pc = 0x1640)
     (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
+    (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
     (destination : s.getReg .x12 = 0x80020) :
-    OrdinarySteps image s 13 (stateAt s) := by
-  obtain ⟨c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13⟩ := code
+    OrdinarySteps image s 12 (stateAt s) := by
+  obtain ⟨c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13⟩ := code
+  have counterReg : s.getReg .x6 = s.getMem 0x80430 :=
+    chainReg.trans counter.symm
   have safe := KeygenEndpoint.address_safe s chain.val chain.isLt counter
   let s1 := execInstrBr s (.LUI .x28 128)
-  let s2 := execInstrBr s1 (.LD .x6 .x28 1072)
+  let s2 := s1
   let s3 := execInstrBr s2 (.SLLI .x7 .x6 4)
   let s4 := execInstrBr s3 (.ADD .x7 .x7 .x12)
   let s5 := execInstrBr s4 (.LD .x10 .x28 32)
@@ -199,18 +205,12 @@ theorem block (image : Image) (code : CodeAt image) (s : MachineState)
   have branchPC : s12.pc =
       if s.getMem 0x80430 + 1 = 46 then 0x166c else 0x1670 := by
     simp [s12,s11,s10,s9,s8,s7,s6,s5,s4,s3,s2,s1,
-      execInstrBr,pc,signExtend12,signExtend13,
+      execInstrBr,pc,counterReg,signExtend12,signExtend13,
       MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
   have coreEq : s11 = core s := rfl
-  apply OrdinarySteps.step s s1 _ (.base (.LUI .x28 128)) 12
-  · simpa only [fetch_at,pc] using c0
+  apply OrdinarySteps.step s s2 _ (.base (.LUI .x28 128)) 11
+  · simpa only [fetch_at,pc] using c1
   · rfl
-  apply OrdinarySteps.step s1 s2 _ (.base (.LD .x6 .x28 1072)) 11
-  · have hp : s1.pc = 0x1640 := by simp [s1,execInstrBr,pc]
-    simpa only [fetch_at,hp] using c1
-  · simp [s1,s2,ordinaryStep,memoryArgumentsValid,execInstrBr,signExtend12,
-      MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne,
-      accessValid,rangeValid,MEMORY_BYTES]
   apply OrdinarySteps.step s2 s3 _ (.base (.SLLI .x7 .x6 4)) 10
   · have hp : s2.pc = 0x1644 := by simp [s1,s2,execInstrBr,pc]
     simpa only [fetch_at,hp] using c2
@@ -237,7 +237,7 @@ theorem block (image : Image) (code : CodeAt image) (s : MachineState)
   · have valid : memoryArgumentsValid s6 (.SD .x7 .x10 (2016#12)) = true := by
       have safe0 := safe.1
       rw [← address_relative s destination] at safe0
-      simpa [s6,s5,s4,s3,s2,s1,memoryArgumentsValid,execInstrBr,
+      simpa [s6,s5,s4,s3,s2,s1,memoryArgumentsValid,execInstrBr,counterReg,
         signExtend12,MachineState.getReg_setReg_eq,
         MachineState.getReg_setReg_ne] using safe0
     simp [ordinaryStep, valid, s7]
@@ -247,7 +247,7 @@ theorem block (image : Image) (code : CodeAt image) (s : MachineState)
   · have valid : memoryArgumentsValid s7 (.SD .x7 .x11 (2024#12)) = true := by
       have safe8 := safe.2
       rw [← address_relative_next s destination] at safe8
-      simpa [s7,s6,s5,s4,s3,s2,s1,memoryArgumentsValid,execInstrBr,
+      simpa [s7,s6,s5,s4,s3,s2,s1,memoryArgumentsValid,execInstrBr,counterReg,
         signExtend12,MachineState.getReg_setReg_eq,
         MachineState.getReg_setReg_ne] using safe8
     simp [ordinaryStep, valid, s8]
@@ -355,29 +355,33 @@ theorem endpoint_header_word_carry (s : MachineState) (level tree leaf : Nat)
 theorem endpoint_short_header_word_carry (s : MachineState) (level tree leaf : Nat)
     (chain : Reference.Chain)
     (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
+    (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
     (carry : Hoist.HeaderWordCarry s level tree leaf) :
     Hoist.HeaderWordCarry (EndpointShort.stateAt s) level tree leaf := by
+  have counterReg : s.getReg .x6 = s.getMem 0x80430 :=
+    chainReg.trans counter.symm
   have old := endpoint_header_word_carry s level tree leaf chain counter carry
   rcases old with ⟨oldChain, oldStep, hc, hs, header, index, service, destination, seven⟩
   rcases carry with ⟨_, _, _, _, _, _, sourceService, sourceDestination, sourceSeven⟩
   obtain ⟨r5, r12, r31⟩ := EndpointShort.state_sticky s
   refine ⟨oldChain, oldStep, hc, hs, ?_, ?_, r5.trans sourceService,
     r12.trans sourceDestination, r31.trans sourceSeven⟩
-  · rw [EndpointShort.state_mem s sourceDestination]
+  · rw [EndpointShort.state_mem s sourceDestination counterReg]
     exact header
   · intro i
-    rw [EndpointShort.state_mem s sourceDestination]
+    rw [EndpointShort.state_mem s sourceDestination counterReg]
     exact index i
 
 /-- Drop-in endpoint theorem for the patched verifier image. -/
 theorem store_endpoint_with_word_carry (s : MachineState) (level tree leaf : Nat)
     (chain : Reference.Chain) (value : Reference.Digest)
-    (pc : s.pc = 0x163c)
+    (pc : s.pc = 0x1640)
     (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
+    (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
     (valueWords : ∀ i : Fin 2,
       s.getMem (wordAddress 0x80020 i.val) = value.extractLsb' (64*i.val) 64)
     (carry : Hoist.HeaderWordCarry s level tree leaf) :
-    ∃ final, OrdinarySteps verify s 13 final ∧
+    ∃ final, OrdinarySteps verify s 12 final ∧
       ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
       (∀ i : Fin 2, final.getMem (KeygenEndpoint.endpointAddress chain.val i.val) =
@@ -392,7 +396,7 @@ theorem store_endpoint_with_word_carry (s : MachineState) (level tree leaf : Nat
     rcases carry with ⟨_, _, _, _, _, _, _, destination, _⟩
     exact destination
   obtain ⟨finalPC, finalCounter, endpoints, ra, sp, frame⟩ :=
-    EndpointShort.state_post s chain value pc counter destination valueWords
+    EndpointShort.state_post s chain value pc counter chainReg destination valueWords
   have nextEntry : ChainEntry (EndpointShort.stateAt s) (chain.val+1) := by
     constructor
     · by_cases terminal : chain.val+1=46
@@ -401,12 +405,12 @@ theorem store_endpoint_with_word_carry (s : MachineState) (level tree leaf : Nat
         simpa [terminal, positive] using finalPC
     · right; right
       refine ⟨(EndpointShort.state_regs s).1, ?_⟩
-      rw [(EndpointShort.state_regs s).2.1, counter, BitVec.ofNat_add]
+      rw [(EndpointShort.state_regs s).2.1, chainReg, BitVec.ofNat_add]
       rfl
   exact ⟨EndpointShort.stateAt s,
-    EndpointShort.block verify EndpointShort.verify_code s chain pc counter destination,
+    EndpointShort.block verify EndpointShort.verify_code s chain pc counter chainReg destination,
     nextEntry, finalCounter, endpoints, ra, sp, frame,
-    endpoint_short_header_word_carry s level tree leaf chain counter carry⟩
+    endpoint_short_header_word_carry s level tree leaf chain counter chainReg carry⟩
 
 
 /-- info: 'SigGolfCandidate.Hypertree.Verifying.store_endpoint_with_word_carry' depends on axioms: [propext,

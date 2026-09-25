@@ -24,6 +24,7 @@ structure LoopData (s : MachineState) (level tree : Nat) (side : Bool)
   lenEq : s.getReg .x11 = 384
   dstEq : s.getReg .x12 = 0x80020
   serviceEq : s.getReg .x5 = 1
+  chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val
   stepReg : s.getReg .x30 = BitVec.ofNat 64 step
   sevenReg : s.getReg .x31 = 7
 
@@ -196,6 +197,7 @@ theorem tick_data (hash : Hash) (s : MachineState) (level tree step : Nat)
   · exact (tick_regs hash s .x11 (by decide)).trans data.lenEq
   · exact (tick_regs hash s .x12 (by decide)).trans data.dstEq
   · exact (tick_regs hash s .x5 (by decide)).trans data.serviceEq
+  · exact (tick_regs hash s .x6 (by decide)).trans data.chainReg
   · rw [tick_step_reg,data.stepReg]
     exact (BitVec.ofNat_add step 1).symm
   · exact (tick_regs hash s .x31 (by decide)).trans data.sevenReg

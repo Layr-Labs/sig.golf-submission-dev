@@ -49,6 +49,10 @@ theorem full_regs (s : MachineState) :
   simp [fullState, execInstrBr, signExtend12, MachineState.getReg_setReg_eq,
     MachineState.getReg_setReg_ne]
 
+theorem full_chain_reg (s : MachineState) :
+    (fullState s).getReg .x6 = s.getReg .x6 := by
+  simp [fullState, execInstrBr, MachineState.getReg_setReg_ne]
+
 theorem header_jump_pc (s : MachineState) (pc : s.pc = 0x15ec) :
     (execInstrBr s (.JAL .x0 836)).pc = 0x1930 := by
   norm_num [execInstrBr, pc, signExtend21]
@@ -169,6 +173,10 @@ theorem partial_loop_data (s : MachineState) (level tree : Nat)
   · exact r11
   · exact r12.trans destination
   · exact r5.trans service
+  · have same : (partialState s).getReg .x6 = s.getReg .x6 := by
+      simp [partialState, execInstrBr, MachineState.setByte,
+        MachineState.getReg_setReg_ne]
+    exact same.trans chainReg
   · exact r30.trans stepReg
   · exact r31.trans seven
 
@@ -177,6 +185,7 @@ theorem full_loop_data (s : MachineState) (level tree : Nat)
     (side : Bool) (chain : Reference.Chain) (step : Nat)
     (value : Reference.Digest)
     (baseReg : s.getReg .x28 = 0x80000)
+    (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
     (stepReg : s.getReg .x30 = BitVec.ofNat 64 step)
     (stepBound : step < 8)
     (levelEq : s.getMem 0x80400 = BitVec.ofNat 64 level)
@@ -225,6 +234,8 @@ theorem full_loop_data (s : MachineState) (level tree : Nat)
   · exact length
   · exact destination
   · exact service
+  · exact (VerifyChainHeaderDirect.chain_reg prepared).trans
+      ((full_chain_reg s).trans chainReg)
   · have same : final.getReg .x30 = prepared.getReg .x30 := by
       simp [final,VerifyChainHeaderDirect.state,execInstrBr,
         MachineState.getReg_setReg_ne]
@@ -302,7 +313,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
     have jumpCode : HeaderJumpCode verify := by unfold HeaderJumpCode; decide
     have jumpRun := header_jump verify jumpCode headed headerPC
     have headedData := full_loop_data entered level tree side chain digit.val
-      value enteredBase enteredStep digit.isLt enteredLevel enteredLeaf
+      value enteredBase enteredChain enteredStep digit.isLt enteredLevel enteredLeaf
       enteredChainMem enteredIndex enteredValue
     have preparedData := header_jump_loop_data headed level tree digit.val
       side chain value headedData

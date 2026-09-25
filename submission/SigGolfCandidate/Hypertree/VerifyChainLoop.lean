@@ -16,7 +16,7 @@ theorem chain_from_digit_fast (hash : Hash) (s : MachineState) (level tree : Nat
       Trace hash verify s instructions cycles (7-digit.val) (7-digit.val) final ∧
       instructions ≤ 4*(7-digit.val)+2 ∧ cycles ≤ 11*(7-digit.val)+2 ∧
       instructions ≤ cycles ∧
-      final.pc = 0x163c ∧
+      final.pc = 0x1640 ∧
       Hoist.LoopData final level tree side chain 7
         (walk (Reference.chainHash hash level tree side chain)
           digit.val (7-digit.val) value) ∧
