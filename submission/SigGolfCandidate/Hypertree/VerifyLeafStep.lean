@@ -31,7 +31,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       (∀ a, OutsideChainWork a → recovered.getMem a = s.getMem a)) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+37+(if chain.val=0 then 49 else 0) ∧
+      cycles ≤ 11*calls+35+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
@@ -55,7 +55,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       (notEndpoint : ∀ i : Fin 2, a ≠ KeygenEndpoint.endpointAddress chain.val i.val) :
       final.getMem a = s.getMem a :=
     (storeFrame a notCounter notEndpoint).trans (recoveredFrame a outside)
-  refine ⟨final, fragSteps+15, fragCycles+15, fragCalls, frag.trans store.trace,
+  refine ⟨final, fragSteps+13, fragCycles+13, fragCalls, frag.trans store.trace,
     by omega, by omega, fragCallsEq, finalEntry, finalCounter, ?_, endpoints,
     finalCarry, storeRA.trans recoveredRA, storeSP.trans recoveredSP, frame⟩
   exact data.transfer s final level tree side base message values bound (fun a outside =>
@@ -74,7 +74,7 @@ theorem leaf_step_fast (hash : Hash) (s : MachineState) (level tree : Nat)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+37+(if chain.val=0 then 49 else 0) ∧
+      cycles ≤ 11*calls+35+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
