@@ -25,7 +25,7 @@ def CodeAt (image : Image) : Prop :=
   instructionAt image 0x166c = some (.base (.ADDI .x7 .x0 46)) ∧
   instructionAt image 0x1670 = some (.base (.BNE .x6 .x7 8)) ∧
   instructionAt image 0x1674 = some (.base (.JAL .x0 28)) ∧
-  instructionAt image 0x1678 = some (.base (.JAL .x0 (-488)))
+  instructionAt image 0x1678 = some (.base (.JAL .x0 (-480)))
 
 theorem verify_code : CodeAt verify := by
   unfold CodeAt
@@ -50,10 +50,10 @@ def stateAt (s : MachineState) : MachineState :=
   let branched := execInstrBr (core s) (.BNE .x6 .x7 8)
   if s.getMem 0x80430 + 1 = 46 then
     execInstrBr branched (.JAL .x0 28)
-  else execInstrBr branched (.JAL .x0 (-488))
+  else execInstrBr branched (.JAL .x0 (-480))
 
 theorem state_pc (s : MachineState) (pc : s.pc = 0x163c) :
-    (stateAt s).pc = if s.getMem 0x80430 + 1 = 46 then 0x1690 else 0x1490 := by
+    (stateAt s).pc = if s.getMem 0x80430 + 1 = 46 then 0x1690 else 0x1498 := by
   simp [stateAt, core, execInstrBr, pc, signExtend12, signExtend13, signExtend21,
     MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
   split_ifs <;> decide
@@ -89,7 +89,7 @@ theorem state_post (s : MachineState) (chain : Reference.Chain)
     (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
     (valueWords : ∀ i : Fin 2,
       s.getMem (wordAddress 0x80020 i.val) = value.extractLsb' (64*i.val) 64) :
-    (stateAt s).pc = (if chain.val+1=46 then 0x1690 else 0x1490) ∧
+    (stateAt s).pc = (if chain.val+1=46 then 0x1690 else 0x1498) ∧
     (stateAt s).getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
     (∀ i : Fin 2, (stateAt s).getMem (KeygenEndpoint.endpointAddress chain.val i.val) =
       value.extractLsb' (64*i.val) 64) ∧
@@ -282,13 +282,13 @@ theorem block (image : Image) (code : CodeAt image) (s : MachineState)
       rfl
     exact OrdinarySteps.refl _
   · have hb : ¬ s.getMem 525360#64 + 1#64 = 46#64 := h
-    apply OrdinarySteps.step s14 (stateAt s) _ (.base (.JAL .x0 (-488))) 0
+    apply OrdinarySteps.step s14 (stateAt s) _ (.base (.JAL .x0 (-480))) 0
     · have hp : s14.pc = 0x1678 := by rw [branchPC]; simp [hb]
       simpa only [fetch_at,hp] using c15
     · unfold stateAt
       rw [if_neg h]
-      change ordinaryStep s14 (.base (.JAL .x0 (-488))) =
-        some (execInstrBr s14 (.JAL .x0 (-488)))
+      change ordinaryStep s14 (.base (.JAL .x0 (-480))) =
+        some (execInstrBr s14 (.JAL .x0 (-480)))
       rfl
     exact OrdinarySteps.refl _
 
@@ -380,7 +380,7 @@ theorem store_endpoint_with_word_carry (s : MachineState) (level tree leaf : Nat
       s.getMem (wordAddress 0x80020 i.val) = value.extractLsb' (64*i.val) 64)
     (carry : Hoist.HeaderWordCarry s level tree leaf) :
     ∃ final, OrdinarySteps verify s 15 final ∧
-      final.pc = (if chain.val+1=46 then 0x1690 else 0x1490) ∧
+      ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
       (∀ i : Fin 2, final.getMem (KeygenEndpoint.endpointAddress chain.val i.val) =
         value.extractLsb' (64*i.val) 64) ∧
@@ -392,8 +392,18 @@ theorem store_endpoint_with_word_carry (s : MachineState) (level tree leaf : Nat
       Hoist.HeaderWordCarry final level tree leaf := by
   obtain ⟨finalPC, finalCounter, endpoints, ra, sp, frame⟩ :=
     EndpointShort.state_post s chain value pc counter valueWords
+  have nextEntry : ChainEntry (EndpointShort.stateAt s) (chain.val+1) := by
+    constructor
+    · by_cases terminal : chain.val+1=46
+      · simpa [terminal] using finalPC
+      · have positive : chain.val+1 ≠ 0 := by omega
+        simpa [terminal, positive] using finalPC
+    · right; right
+      refine ⟨(EndpointShort.state_regs s).1, ?_⟩
+      rw [(EndpointShort.state_regs s).2.1, counter, BitVec.ofNat_add]
+      rfl
   exact ⟨EndpointShort.stateAt s, EndpointShort.block verify EndpointShort.verify_code s chain pc counter,
-    finalPC, finalCounter, endpoints, ra, sp, frame,
+    nextEntry, finalCounter, endpoints, ra, sp, frame,
     endpoint_short_header_word_carry s level tree leaf chain counter carry⟩
 
 

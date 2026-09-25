@@ -19,7 +19,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
     (fragment : ∃ recovered steps cycles calls,
       Trace hash verify s steps cycles calls calls recovered ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+24+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+22+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       recovered.pc = 0x163c ∧
       recovered.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
@@ -31,9 +31,9 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       (∀ a, OutsideChainWork a → recovered.getMem a = s.getMem a)) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+39+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+37+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
-      final.pc = (if chain.val+1 = 46 then 0x1690 else 0x1490) ∧
+      ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
       LeafData final level tree side base message values ∧
       (∀ i : Fin 2, final.getMem (KeygenEndpoint.endpointAddress chain.val i.val) =
@@ -46,7 +46,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
   obtain ⟨recovered, fragSteps, fragCycles, fragCalls, frag, fragStepBound,
     fragCycleBound, fragCallsEq, recoveredPC, recoveredCounter, words, carry,
     recoveredRA, recoveredSP, recoveredFrame⟩ := fragment
-  obtain ⟨final, store, finalPC, finalCounter, endpoints, storeRA, storeSP,
+  obtain ⟨final, store, finalEntry, finalCounter, endpoints, storeRA, storeSP,
     storeFrame, finalCarry⟩ :=
     store_endpoint_with_word_carry recovered level tree (Reference.sideNumber side)
       chain (recoveredEndpoint hash level tree side message values chain)
@@ -56,7 +56,7 @@ theorem leaf_step_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       final.getMem a = s.getMem a :=
     (storeFrame a notCounter notEndpoint).trans (recoveredFrame a outside)
   refine ⟨final, fragSteps+15, fragCycles+15, fragCalls, frag.trans store.trace,
-    by omega, by omega, fragCallsEq, finalPC, finalCounter, ?_, endpoints,
+    by omega, by omega, fragCallsEq, finalEntry, finalCounter, ?_, endpoints,
     finalCarry, storeRA.trans recoveredRA, storeSP.trans recoveredSP, frame⟩
   exact data.transfer s final level tree side base message values bound (fun a outside =>
     frame a (outside_leaf_chain a outside) outside.2.2.2.2.1
@@ -67,16 +67,16 @@ theorem leaf_step_fast (hash : Hash) (s : MachineState) (level tree : Nat)
     (side : Bool) (base : Nat) (message : Reference.Digest)
     (values : Reference.Chain → Reference.Digest) (chain : Reference.Chain)
     (small : level < 256)
-    (pc : s.pc = 0x1490)
+    (entry : ChainEntry s chain.val)
     (data : LeafData s level tree side base message values)
     (counter : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
     (ready : Hoist.HeaderReadyWord s level tree (Reference.sideNumber side) chain.val)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+39+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+37+(if chain.val=0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
-      final.pc = (if chain.val+1 = 46 then 0x1690 else 0x1490) ∧
+      ChainEntry final (chain.val+1) ∧
       final.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
       LeafData final level tree side base message values ∧
       (∀ i : Fin 2, final.getMem (KeygenEndpoint.endpointAddress chain.val i.val) =
@@ -104,7 +104,7 @@ theorem leaf_step_fast (hash : Hash) (s : MachineState) (level tree : Nat)
     rw [add]
     simpa only [Fin.val_one,Nat.mul_one] using data.valueEq chain 1
   have fragment := recover_chain_fragment_fast hash s level tree side chain
-    (Reference.digit message chain) (values chain) small pc safe.1 safe.2
+    (Reference.digit message chain) (values chain) small entry safe.1 safe.2
     data.levelEq data.leafEq counter data.indexEq value0 value8
     (data.digitEq chain) ready
   exact leaf_step_fast_core hash s level tree side base message values chain

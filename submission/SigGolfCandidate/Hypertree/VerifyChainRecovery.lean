@@ -1,6 +1,7 @@
 import SigGolfCandidate.Hypertree.VerifyChainLoop
 import SigGolfCandidate.Hypertree.VerifyHoistBridge
 import SigGolfCandidate.Hypertree.VerifyHoistWitness
+import SigGolfCandidate.Hypertree.VerifyHoistWitnessResume
 import SigGolfCandidate.Hypertree.KeygenEndpoint
 
 namespace SigGolfCandidate.Hypertree.Verifying
@@ -8,6 +9,13 @@ open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 Keygen Signing
 set_option maxRecDepth 4096
 
 def chainSourceFast (s : MachineState) : Word := s.getMem 0x80448 + (s.getMem 0x80430 <<< 4)
+
+/-- The first chain starts at the full witness loader. Every resumed chain enters
+after the endpoint store has left the base and chain registers ready. -/
+def ChainEntry (s : MachineState) (next : Nat) : Prop :=
+  s.pc = (if next = 46 then 0x1690 else if next = 0 then 0x1490 else 0x1498) ∧
+  (next = 0 ∨ next = 46 ∨
+    (s.getReg .x28 = 0x80000 ∧ s.getReg .x6 = BitVec.ofNat 64 next))
 
 theorem chainSource_eq (s : MachineState) (base : Nat) (chain : Reference.Chain)
     (pointer : s.getMem 0x80448 = BitVec.ofNat 64 base)
@@ -55,7 +63,7 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     (level tree : Nat) (side : Bool) (chain : Reference.Chain)
     (digit : Fin 8) (value : Reference.Digest)
     (levelBound : level < 256)
-    (pc : s.pc = 0x1490)
+    (entry : ChainEntry s chain.val)
     (valid0 : accessValid (chainSourceFast s) 8 = true)
     (valid8 : accessValid (chainSourceFast s + 8) 8 = true)
     (levelEq : s.getMem 0x80400 = BitVec.ofNat 64 level)
@@ -71,7 +79,7 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     ∃ final steps cycles calls,
       Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+24+(if chain.val=0 then 47 else 0) ∧
+      cycles ≤ 11*calls+22+(if chain.val=0 then 49 else 0) ∧
       calls = 7-digit.val ∧
       final.pc = 0x163c ∧
       final.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
@@ -82,17 +90,58 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
       final.getReg .x1 = s.getReg .x1 ∧
       final.getReg .x2 = s.getReg .x2 ∧
       (∀ a, OutsideChainWork a → final.getMem a = s.getMem a) := by
+  have witnessPrep :
+      ∃ witness, OrdinarySteps verify s (if chain.val = 0 then 14 else 12) witness ∧
+        witness.pc = 0x14e8 ∧
+        witness.getReg .x10 = BitVec.ofNat 64 digit.val ∧
+        witness.getReg .x6 = BitVec.ofNat 64 chain.val ∧
+        witness.getReg .x28 = 0x80438 ∧
+        witness.getMem 0x80400 = BitVec.ofNat 64 level ∧
+        witness.getMem 0x80428 = BitVec.ofNat 64 (Reference.sideNumber side) ∧
+        witness.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
+        (∀ i : Fin 3, witness.getMem (wordAddress 0x80408 i.val) =
+          (BitVec.ofNat 192 tree).extractLsb' (64*i.val) 64) ∧
+        (∀ i : Fin 2, witness.getMem (wordAddress 0x80020 i.val) =
+          value.extractLsb' (64*i.val) 64) ∧
+        witness.getReg .x5 = s.getReg .x5 ∧
+        witness.getReg .x12 = s.getReg .x12 ∧
+        witness.getReg .x31 = s.getReg .x31 ∧
+        witness.getReg .x1 = s.getReg .x1 ∧
+        witness.getReg .x2 = s.getReg .x2 ∧
+        (∀ a, a ≠ 0x80020 → a ≠ 0x80028 → witness.getMem a = s.getMem a) := by
+    have notTerminal : chain.val ≠ 46 := by have h := chain.isLt; omega
+    by_cases first : chain.val = 0
+    · have atFirst : s.pc = 0x1490 := by
+        simpa [ChainEntry, notTerminal, first] using entry.1
+      simpa [first] using
+        (Hoist.witness_prepare s level tree side chain digit value atFirst
+          (by simpa only [Hoist.chainSource,chainSourceFast] using valid0)
+          (by simpa only [Hoist.chainSource,chainSourceFast] using valid8)
+          levelEq leafEq chainEq indexEq
+          (by simpa only [Hoist.chainSource,chainSourceFast] using value0)
+          (by simpa only [Hoist.chainSource,chainSourceFast] using value8)
+          digitEq)
+    · have atResume : s.pc = 0x1498 := by
+        simpa [ChainEntry, notTerminal, first] using entry.1
+      have regs : s.getReg .x28 = 0x80000 ∧
+          s.getReg .x6 = BitVec.ofNat 64 chain.val := by
+        rcases entry.2 with zero | terminal | regs
+        · exact False.elim (first zero)
+        · exact False.elim (notTerminal terminal)
+        · exact regs
+      simpa [first] using
+        (Hoist.witness_prepare_after_endpoint s level tree side chain digit value
+          atResume regs.1 regs.2
+          (by simpa only [Hoist.chainSource,chainSourceFast] using valid0)
+          (by simpa only [Hoist.chainSource,chainSourceFast] using valid8)
+          levelEq leafEq chainEq indexEq
+          (by simpa only [Hoist.chainSource,chainSourceFast] using value0)
+          (by simpa only [Hoist.chainSource,chainSourceFast] using value8)
+          digitEq)
   obtain ⟨witness, witnessRun, witnessPC, witnessDigit, witnessChain,
     witnessPtr, witnessLevel, witnessLeaf, witnessCounter, witnessIndex,
     witnessValue, witnessService, witnessDestination, witnessSeven,
-    witnessRA, witnessSP, witnessFrame⟩ :=
-    Hoist.witness_prepare s level tree side chain digit value pc
-      (by simpa only [Hoist.chainSource,chainSourceFast] using valid0)
-      (by simpa only [Hoist.chainSource,chainSourceFast] using valid8)
-      levelEq leafEq chainEq indexEq
-      (by simpa only [Hoist.chainSource,chainSourceFast] using value0)
-      (by simpa only [Hoist.chainSource,chainSourceFast] using value8)
-      digitEq
+    witnessRA, witnessSP, witnessFrame⟩ := witnessPrep
   have witnessReady : Hoist.HeaderReadyWord witness level tree
       (Reference.sideNumber side) chain.val := by
     rcases ready with zero | carry
@@ -123,7 +172,8 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     apply witnessFrame
     · simpa [wordAddress] using outside.1 (4 : Fin 8)
     · simpa [wordAddress] using outside.1 (5 : Fin 8)
-  refine ⟨final,14+headerSteps+loopSteps,14+headerSteps+loopCycles,
+  refine ⟨final,(if chain.val=0 then 14 else 12)+headerSteps+loopSteps,
+    (if chain.val=0 then 14 else 12)+headerSteps+loopCycles,
     7-digit.val,?_,by omega,?_,rfl,finalPC,?_,finalData.valueEq,
     finalCarry,loopRA.trans (preparedRA.trans witnessRA),
     loopSP.trans (preparedSP.trans witnessSP),frame⟩
