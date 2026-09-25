@@ -8,19 +8,19 @@ set_option linter.unusedSimpArgs false
 
 def LoopCode (image : Image) : Prop :=
   TickCode image ∧
-  instructionAt image 0x1930 = some (.base (.BEQ .x30 .x31 (-752))) ∧
-  instructionAt image 0x1944 = some (.base (.JAL .x0 (-772)))
+  instructionAt image 0x1930 = some (.base (.BEQ .x30 .x31 (-748))) ∧
+  instructionAt image 0x1944 = some (.base (.JAL .x0 (-768)))
 
 def branchState (s : MachineState) : MachineState :=
-  execInstrBr s (.BEQ .x30 .x31 (-752))
+  execInstrBr s (.BEQ .x30 .x31 (-748))
 
 def exitState (s : MachineState) : MachineState :=
-  execInstrBr s (.JAL .x0 (-772))
+  execInstrBr s (.JAL .x0 (-768))
 
 theorem branch_block (image : Image) (code : LoopCode image)
     (s : MachineState) (pc : s.pc = 0x1930) :
     OrdinarySteps image s 1 (branchState s) := by
-  apply OrdinarySteps.step s _ _ (.base (.BEQ .x30 .x31 (-752))) 0
+  apply OrdinarySteps.step s _ _ (.base (.BEQ .x30 .x31 (-748))) 0
   · simpa only [fetch_at,pc] using code.2.1
   · rfl
   exact OrdinarySteps.refl _
@@ -28,7 +28,7 @@ theorem branch_block (image : Image) (code : LoopCode image)
 theorem exit_block (image : Image) (code : LoopCode image)
     (s : MachineState) (pc : s.pc = 0x1944) :
     OrdinarySteps image s 1 (exitState s) := by
-  apply OrdinarySteps.step s _ _ (.base (.JAL .x0 (-772))) 0
+  apply OrdinarySteps.step s _ _ (.base (.JAL .x0 (-768))) 0
   · simpa only [fetch_at,pc] using code.2.2
   · rfl
   exact OrdinarySteps.refl _
@@ -36,12 +36,12 @@ theorem exit_block (image : Image) (code : LoopCode image)
 theorem branch_pc (s : MachineState) (step : Nat)
     (pc : s.pc = 0x1930) (reg : s.getReg .x30 = BitVec.ofNat 64 step)
     (seven : s.getReg .x31 = 7) (bound : step ≤ 7) :
-    (branchState s).pc = if step = 7 then 0x1640 else 0x1934 := by
+    (branchState s).pc = if step = 7 then 0x1644 else 0x1934 := by
   simp [branchState,execInstrBr,signExtend13,pc,reg,seven]
   interval_cases step <;> decide
 
 theorem exit_pc (s : MachineState) (pc : s.pc = 0x1944) :
-    (exitState s).pc = 0x1640 := by
+    (exitState s).pc = 0x1644 := by
   norm_num [exitState,execInstrBr,pc,signExtend21]
   decide
 
@@ -78,6 +78,7 @@ theorem LoopData.of_mem_regs {s t : MachineState} {level tree step : Nat}
   · rw [regs]; exact data.dstEq
   · rw [regs]; exact data.serviceEq
   · rw [regs]; exact data.chainReg
+  · rw [regs]; exact data.baseReg
   · rw [regs]; exact data.stepReg
   · rw [regs]; exact data.sevenReg
 
@@ -95,7 +96,7 @@ theorem hash_loop (image : Image) (hash : Hash) (code : LoopCode image)
     (positive : 0 < remaining) (levelBound : level < 256)
     (data : LoopData s level tree side chain step value) :
     ∃ final, Trace hash image s (4*remaining+1) (11*remaining+1)
-        remaining remaining final ∧ final.pc = 0x1640 ∧
+        remaining remaining final ∧ final.pc = 0x1644 ∧
       LoopData final level tree side chain 7
         (walk (Reference.chainHash hash level tree side chain) step remaining value) ∧
       final.getReg .x1 = s.getReg .x1 ∧ final.getReg .x2 = s.getReg .x2 ∧
@@ -150,7 +151,7 @@ theorem run_fragment (image : Image) (hash : Hash) (code : LoopCode image)
       Trace hash image s instructions cycles remaining remaining final ∧
       instructions ≤ 4*remaining+2 ∧ cycles ≤ 11*remaining+2 ∧
       instructions ≤ cycles ∧
-      final.pc = 0x1640 ∧
+      final.pc = 0x1644 ∧
       LoopData final level tree side chain 7
         (walk (Reference.chainHash hash level tree side chain) step remaining value) ∧
       HeaderWordCarry final level tree (Reference.sideNumber side) ∧
@@ -162,7 +163,7 @@ theorem run_fragment (image : Image) (hash : Hash) (code : LoopCode image)
     data.of_mem_regs (branch_mem s) (branch_regs s)
   by_cases zero : remaining = 0
   · have stepSeven : step = 7 := by omega
-    have readyPC : ready.pc = 0x1640 := by
+    have readyPC : ready.pc = 0x1644 := by
       rw [branch_pc s step pc data.stepReg data.sevenReg (by omega)]
       simp [stepSeven]
     refine ⟨ready,1,1,?_,by omega,by omega,by omega,readyPC,?_,?_,?_,?_,?_⟩

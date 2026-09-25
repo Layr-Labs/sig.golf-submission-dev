@@ -141,6 +141,7 @@ theorem partial_loop_data (s : MachineState) (level tree : Nat)
     (carry : HeaderWordCarry s level tree (Reference.sideNumber side))
     (levelBound : level < 256) (stepBound : step < 8)
     (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
+    (baseReg : s.getReg .x28 = 0x80000)
     (stepReg : s.getReg .x30 = BitVec.ofNat 64 step)
     (valueEq : ∀ i : Fin 2, s.getMem (wordAddress 0x80020 i.val) =
       value.extractLsb' (64*i.val) 64) :
@@ -177,6 +178,10 @@ theorem partial_loop_data (s : MachineState) (level tree : Nat)
       simp [partialState, execInstrBr, MachineState.setByte,
         MachineState.getReg_setReg_ne]
     exact same.trans chainReg
+  · have same : (partialState s).getReg .x28 = s.getReg .x28 := by
+      simp [partialState, execInstrBr, MachineState.setByte,
+        MachineState.getReg_setReg_ne]
+    exact same.trans baseReg
   · exact r30.trans stepReg
   · exact r31.trans seven
 
@@ -236,6 +241,7 @@ theorem full_loop_data (s : MachineState) (level tree : Nat)
   · exact service
   · exact (VerifyChainHeaderDirect.chain_reg prepared).trans
       ((full_chain_reg s).trans chainReg)
+  · exact VerifyChainHeaderDirect.base_reg prepared
   · have same : final.getReg .x30 = prepared.getReg .x30 := by
       simp [final,VerifyChainHeaderDirect.state,execInstrBr,
         MachineState.getReg_setReg_ne]
@@ -361,7 +367,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
     have partialCode : PartialCode verify := by unfold PartialCode; decide
     have partialRun := partial_block verify partialCode entered atPartial
     have preparedData := partial_loop_data entered level tree side chain digit.val
-      value enteredCarry levelBound digit.isLt enteredChain enteredStep enteredValue
+      value enteredCarry levelBound digit.isLt enteredChain enteredBase enteredStep enteredValue
     refine ⟨prepared,6,?_,by simp [zero],partial_pc entered atPartial,
       preparedData,?_,?_,?_⟩
     · convert ordinary_trans verify s entered prepared 1 5 entryRun partialRun using 1 <;> omega

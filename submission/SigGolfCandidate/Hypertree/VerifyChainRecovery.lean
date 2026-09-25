@@ -81,9 +81,10 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
       steps ≤ cycles ∧
       cycles ≤ 11*calls+19+(if chain.val=0 then 49 else 0) ∧
       calls = 7-digit.val ∧
-      final.pc = 0x1640 ∧
+      final.pc = 0x1644 ∧
       final.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
       final.getReg .x6 = BitVec.ofNat 64 chain.val ∧
+      final.getReg .x28 = 0x80000 ∧
       (∀ i : Fin 2, final.getMem (wordAddress 0x80020 i.val) =
         (walk (Reference.chainHash hash level tree side chain)
           digit.val (7-digit.val) value).extractLsb' (64*i.val) 64) ∧
@@ -175,7 +176,7 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     · simpa [wordAddress] using outside.1 (5 : Fin 8)
   refine ⟨final,(if chain.val=0 then 13 else 11)+headerSteps+loopSteps,
     (if chain.val=0 then 13 else 11)+headerSteps+loopCycles,
-    7-digit.val,?_,by omega,?_,rfl,finalPC,?_,finalData.chainReg,finalData.valueEq,
+    7-digit.val,?_,by omega,?_,rfl,finalPC,?_,finalData.chainReg,finalData.baseReg,finalData.valueEq,
     finalCarry,loopRA.trans (preparedRA.trans witnessRA),
     loopSP.trans (preparedSP.trans witnessSP),frame⟩
   · convert witnessRun.trace.trans (headerRun.trace.trans loopRun) using 1 <;> omega
