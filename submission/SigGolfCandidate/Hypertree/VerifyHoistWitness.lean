@@ -99,34 +99,36 @@ theorem chainValueState_stack (s : MachineState) :
   simp [chainValueState, execInstrBr, MachineState.getReg_setReg_ne]
 
 def digitState (s : MachineState) : MachineState :=
-  let s := execInstrBr s (.ADDI .x7 .x28 0x600)
-  let s := execInstrBr s (.ADD .x7 .x7 .x6)
-  let s := execInstrBr s (.LBU .x30 .x7 0)
-  execInstrBr s (.JAL .x0 1100)
+  let s := execInstrBr s (.ADD .x7 .x28 .x6)
+  let s := execInstrBr s (.LBU .x30 .x7 0x600)
+  execInstrBr s (.JAL .x0 1104)
+
+theorem digit_address (x : Word) :
+    (0x80000 : Word) + x + signExtend12 (0x600 : BitVec 12) = 0x80600 + x := by
+  have h : signExtend12 (0x600 : BitVec 12) = (0x600 : Word) := by decide
+  rw [h]
+  bv_omega
 
 theorem digit_block (s : MachineState) (pc : s.pc = 0x14b4)
     (base : s.getReg .x28 = 0x80000)
     (valid : accessValid (0x80600 + s.getReg .x6) 1 = true) :
-    OrdinarySteps verify s 4 (digitState s) := by
-  let s1 := execInstrBr s (.ADDI .x7 .x28 0x600)
-  let s2 := execInstrBr s1 (.ADD .x7 .x7 .x6)
-  let s3 := execInstrBr s2 (.LBU .x30 .x7 0)
-  let s4 := execInstrBr s3 (.JAL .x0 1100)
-  apply OrdinarySteps.step s s1 _ (.base (.ADDI .x7 .x28 0x600)) 3
+    OrdinarySteps verify s 3 (digitState s) := by
+  let s1 := execInstrBr s (.ADD .x7 .x28 .x6)
+  let s2 := execInstrBr s1 (.LBU .x30 .x7 0x600)
+  let s3 := execInstrBr s2 (.JAL .x0 1104)
+  apply OrdinarySteps.step s s1 _ (.base (.ADD .x7 .x28 .x6)) 2
   · have hp : s.pc = 0x14b4 := pc
     simp only [fetch,hp]; decide
   · rfl
-  apply OrdinarySteps.step s1 s2 _ (.base (.ADD .x7 .x7 .x6)) 2
+  apply OrdinarySteps.step s1 s2 _ (.base (.LBU .x30 .x7 0x600)) 1
   · have hp : s1.pc = 0x14b8 := by simp [s1,execInstrBr,pc]
     simp only [fetch,hp]; decide
-  · rfl
-  apply OrdinarySteps.step s2 s3 _ (.base (.LBU .x30 .x7 0)) 1
+  · have v : accessValid (0x80000 + s.getReg .x6 + signExtend12 (0x600 : BitVec 12)) 1 = true := by
+      rw [digit_address]; exact valid
+    simpa [s1,s2,ordinaryStep,memoryArgumentsValid,execInstrBr,
+      MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne,base] using v
+  apply OrdinarySteps.step s2 s3 _ (.base (.JAL .x0 1104)) 0
   · have hp : s2.pc = 0x14bc := by simp [s1,s2,execInstrBr,pc,BitVec.add_assoc]
-    simp only [fetch,hp]; decide
-  · simpa [s1,s2,s3,ordinaryStep,memoryArgumentsValid,execInstrBr,signExtend12,
-      MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne,base] using valid
-  apply OrdinarySteps.step s3 s4 _ (.base (.JAL .x0 1100)) 0
-  · have hp : s3.pc = 0x14c0 := by simp [s1,s2,s3,execInstrBr,pc,BitVec.add_assoc]
     simp only [fetch,hp]; decide
   · rfl
   exact OrdinarySteps.refl _
@@ -146,8 +148,11 @@ theorem digit_regs (s : MachineState) (base : s.getReg .x28 = 0x80000) :
     (digitState s).getReg .x28 = 0x80000 ∧
     (digitState s).getReg .x1 = s.getReg .x1 ∧
     (digitState s).getReg .x2 = s.getReg .x2 := by
-  simp [digitState,execInstrBr,signExtend12,base,
+  have addr : s.getByte (0x80000 + s.getReg .x6 + signExtend12 (0x600 : BitVec 12)) =
+      s.getByte (0x80600 + s.getReg .x6) := by rw [digit_address]
+  simp [digitState,execInstrBr,base,addr,
     MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
+  exact congrArg (BitVec.setWidth 64) addr
 
 theorem chainValueState_digit (s : MachineState) (chain : Reference.Chain) :
     (chainValueState s).getByte (BitVec.ofNat 64 (0x80600 + chain.val)) =
@@ -183,7 +188,7 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
     (value8 : s.getMem (chainSource s + 8) = value.extractLsb' 64 64)
     (digitEq : s.getByte (BitVec.ofNat 64 (0x80600 + chain.val)) =
       BitVec.ofNat 8 digit.val) :
-    ∃ ready, OrdinarySteps verify s 13 ready ∧ ready.pc = 0x190c ∧
+    ∃ ready, OrdinarySteps verify s 12 ready ∧ ready.pc = 0x190c ∧
       ready.getReg .x30 = BitVec.ofNat 64 digit.val ∧
       ready.getReg .x6 = BitVec.ofNat 64 chain.val ∧
       ready.getReg .x28 = 0x80000 ∧
@@ -217,7 +222,7 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
   have reg := digit_regs copied (chainValueState_base s)
   have sticky0 := chainValueState_sticky s
   have sticky1 := digit_sticky copied
-  refine ⟨ready,ordinary_trans verify s copied ready 9 4
+  refine ⟨ready,ordinary_trans verify s copied ready 9 3
       (chainValueState_block s pc valid0 valid8)
       (digit_block copied copiedPC (chainValueState_base s) validDigit),
     ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
