@@ -73,7 +73,7 @@ theorem leaf_loop_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
       ∃ next steps cycles calls,
         Trace hash verify t steps cycles calls calls next ∧
         steps ≤ cycles ∧
-        cycles ≤ 11*calls+35+(if chain.val = 0 then 49 else 0) ∧
+        cycles ≤ 11*calls+33+(if chain.val = 0 then 49 else 0) ∧
         calls = 7-(Reference.digit message chain).val ∧
         ChainEntry next (chain.val+1) ∧
         next.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
@@ -87,7 +87,7 @@ theorem leaf_loop_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
           next.getMem a = t.getMem a)) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+35*remaining+(if start = 0 then 49 else 0) ∧
+      cycles ≤ 11*calls+33*remaining+(if start = 0 then 49 else 0) ∧
       calls + chainPrefixFast message start = chainPrefixFast message 46 ∧
       final.pc = 0x1690 ∧ final.getMem 0x80430 = 46 ∧
       LeafData final level tree side base message values ∧
@@ -149,7 +149,7 @@ theorem leaf_loop_fast_core (hash : Hash) (s : MachineState) (level tree : Nat)
     refine ⟨final, preSteps+tailSteps, preCycles+tailCycles, preCalls+tailCalls,
       pre.trans tail, by omega, ?_, ?_, finalPC, finalCounter, finalData,
       finalPrefix, finalCarry, finalRA.trans nextRA, finalSP.trans nextSP, ?_⟩
-    · change preCycles ≤ 11*preCalls+35+(if start=0 then 49 else 0) at preCycleBound
+    · change preCycles ≤ 11*preCalls+33+(if start=0 then 49 else 0) at preCycleBound
       omega
     · change preCalls = 7-(Reference.digit message ⟨start,startLt⟩).val at callsEq
       omega
@@ -172,7 +172,7 @@ def FastLeafStepSpec (hash : Hash) (level tree : Nat) (side : Bool) (base : Nat)
     ∃ next steps cycles calls,
       Trace hash verify t steps cycles calls calls next ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+35+(if chain.val = 0 then 49 else 0) ∧
+      cycles ≤ 11*calls+33+(if chain.val = 0 then 49 else 0) ∧
       calls = 7-(Reference.digit message chain).val ∧
       ChainEntry next (chain.val+1) ∧
       next.getMem 0x80430 = BitVec.ofNat 64 (chain.val+1) ∧
@@ -193,7 +193,7 @@ theorem recover_all_chains_fast_core (hash : Hash) (s : MachineState)
     (counter : s.getMem 0x80430 = 0)
     (stepHyp : FastLeafStepSpec hash level tree side base message values) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
-      steps ≤ cycles ∧ cycles ≤ 11*calls+1659 ∧ calls ≤ 308 ∧
+      steps ≤ cycles ∧ cycles ≤ 11*calls+1567 ∧ calls ≤ 308 ∧
       calls = chainPrefixFast message 46 ∧
       final.pc = 0x1690 ∧ final.getMem 0x80430 = 46 ∧
       LeafData final level tree side base message values ∧
@@ -232,7 +232,7 @@ theorem recover_all_chains_fast (hash : Hash) (s : MachineState)
     (counter : s.getMem 0x80430 = 0)
     (aligned : base % 8 = 0) (bound : base+736 ≤ 0x80000) :
     ∃ final steps cycles calls, Trace hash verify s steps cycles calls calls final ∧
-      steps ≤ cycles ∧ cycles ≤ 11*calls+1659 ∧ calls ≤ 308 ∧
+      steps ≤ cycles ∧ cycles ≤ 11*calls+1567 ∧ calls ≤ 308 ∧
       calls = chainPrefixFast message 46 ∧
       final.pc = 0x1690 ∧ final.getMem 0x80430 = 46 ∧
       LeafData final level tree side base message values ∧

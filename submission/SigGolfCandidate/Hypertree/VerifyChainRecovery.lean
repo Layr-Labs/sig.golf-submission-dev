@@ -79,7 +79,7 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
     ∃ final steps cycles calls,
       Trace hash verify s steps cycles calls calls final ∧
       steps ≤ cycles ∧
-      cycles ≤ 11*calls+22+(if chain.val=0 then 49 else 0) ∧
+      cycles ≤ 11*calls+20+(if chain.val=0 then 49 else 0) ∧
       calls = 7-digit.val ∧
       final.pc = 0x163c ∧
       final.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
@@ -92,8 +92,8 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
       (∀ a, OutsideChainWork a → final.getMem a = s.getMem a) := by
   have witnessPrep :
       ∃ witness, OrdinarySteps verify s (if chain.val = 0 then 14 else 12) witness ∧
-        witness.pc = 0x14e8 ∧
-        witness.getReg .x10 = BitVec.ofNat 64 digit.val ∧
+        witness.pc = 0x190c ∧
+        witness.getReg .x30 = BitVec.ofNat 64 digit.val ∧
         witness.getReg .x6 = BitVec.ofNat 64 chain.val ∧
         witness.getReg .x28 = 0x80438 ∧
         witness.getMem 0x80400 = BitVec.ofNat 64 level ∧

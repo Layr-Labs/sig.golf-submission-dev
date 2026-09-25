@@ -7,32 +7,16 @@ set_option maxRecDepth 4096
 set_option linter.unusedSimpArgs false
 
 def EntryCode (image : Image) : Prop :=
-  instructionAt image 0x14e8 = some (.base (.JAL .x0 1056)) ∧
-  instructionAt image 0x1908 = some (.base (.ADDI .x30 .x10 0)) ∧
   instructionAt image 0x190c = some (.base (.BEQ .x6 .x0 24))
 
 def entryState (s : MachineState) : MachineState :=
-  let s := execInstrBr s (.JAL .x0 1056)
-  let s := execInstrBr s (.ADDI .x30 .x10 0)
   execInstrBr s (.BEQ .x6 .x0 24)
 
 theorem entry_block (image : Image) (code : EntryCode image)
-    (s : MachineState) (pc : s.pc = 0x14e8) :
-    OrdinarySteps image s 3 (entryState s) := by
-  obtain ⟨c0,c1,c2⟩ := code
-  let s1 := execInstrBr s (.JAL .x0 1056)
-  let s2 := execInstrBr s1 (.ADDI .x30 .x10 0)
-  let s3 := execInstrBr s2 (.BEQ .x6 .x0 24)
-  apply OrdinarySteps.step s s1 _ (.base (.JAL .x0 1056)) 2
-  · simpa only [fetch_at,pc] using c0
-  · rfl
-  apply OrdinarySteps.step s1 s2 _ (.base (.ADDI .x30 .x10 0)) 1
-  · have hp : s1.pc = 0x1908 := by norm_num [s1,execInstrBr,pc,signExtend21]; decide
-    simpa only [fetch_at,hp] using c1
-  · rfl
-  apply OrdinarySteps.step s2 s3 _ (.base (.BEQ .x6 .x0 24)) 0
-  · have hp : s2.pc = 0x190c := by norm_num [s1,s2,execInstrBr,pc,signExtend21]; decide
-    simpa only [fetch_at,hp] using c2
+    (s : MachineState) (pc : s.pc = 0x190c) :
+    OrdinarySteps image s 1 (entryState s) := by
+  apply OrdinarySteps.step s _ _ (.base (.BEQ .x6 .x0 24)) 0
+  · simpa only [EntryCode, fetch_at, pc] using code
   · rfl
   exact OrdinarySteps.refl _
 

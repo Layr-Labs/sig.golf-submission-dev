@@ -6,7 +6,7 @@ namespace SigGolfCandidate.Hypertree.Verifying.Hoist
 open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 Signing Keygen
 set_option maxRecDepth 4096
 
-theorem entry_pc (s : MachineState) (pc : s.pc = 0x14e8) :
+theorem entry_pc (s : MachineState) (pc : s.pc = 0x190c) :
     (entryState s).pc = if s.getReg .x6 = 0 then 0x1924 else 0x1910 := by
   simp [entryState, execInstrBr, pc, signExtend21, signExtend13,
     MachineState.getReg_setReg_ne]
@@ -19,7 +19,7 @@ theorem entry_regs (s : MachineState) :
     (entryState s).getReg .x6 = s.getReg .x6 ∧
     (entryState s).getReg .x10 = s.getReg .x10 ∧
     (entryState s).getReg .x28 = s.getReg .x28 ∧
-    (entryState s).getReg .x30 = s.getReg .x10 ∧
+    (entryState s).getReg .x30 = s.getReg .x30 ∧
     (entryState s).getReg .x1 = s.getReg .x1 ∧
     (entryState s).getReg .x2 = s.getReg .x2 := by
   simp [entryState, execInstrBr, signExtend12, MachineState.getReg_setReg_eq,
@@ -239,9 +239,9 @@ def OutsideHeader (a : Word) : Prop :=
 theorem prepare_header (s : MachineState) (level tree : Nat)
     (side : Bool) (chain : Reference.Chain) (digit : Fin 8)
     (value : Reference.Digest)
-    (pc : s.pc = 0x14e8)
+    (pc : s.pc = 0x190c)
     (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
-    (digitReg : s.getReg .x10 = BitVec.ofNat 64 digit.val)
+    (digitReg : s.getReg .x30 = BitVec.ofNat 64 digit.val)
     (stepPtr : s.getReg .x28 = 0x80438)
     (levelEq : s.getMem 0x80400 = BitVec.ofNat 64 level)
     (leafEq : s.getMem 0x80428 = BitVec.ofNat 64 (Reference.sideNumber side))
@@ -254,7 +254,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
     (levelBound : level < 256) :
     ∃ prepared instructions,
       OrdinarySteps verify s instructions prepared ∧
-      instructions = (if chain.val = 0 then 55 else 8) ∧
+      instructions = (if chain.val = 0 then 53 else 6) ∧
       prepared.pc = 0x1930 ∧
       LoopData prepared level tree side chain digit.val value ∧
       prepared.getReg .x1 = s.getReg .x1 ∧
@@ -306,9 +306,9 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
       enteredChainMem enteredIndex enteredValue
     have preparedData := header_jump_loop_data headed level tree digit.val
       side chain value headedData
-    refine ⟨prepared,55,?_,by simp [zero],
+    refine ⟨prepared,53,?_,by simp [zero],
       header_jump_pc headed headerPC,preparedData,?_,?_,?_⟩
-    · convert ordinary_trans verify s entered prepared 3 52 entryRun
+    · convert ordinary_trans verify s entered prepared 1 52 entryRun
         (ordinary_trans verify entered full prepared 3 49 fullRun
           (ordinary_trans verify full headed prepared 48 1 headerRun jumpRun)) using 1 <;> omega
     · exact (header_jump_regs headed).1.trans
@@ -351,9 +351,9 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
     have partialRun := partial_block verify partialCode entered atPartial
     have preparedData := partial_loop_data entered level tree side chain digit.val
       value enteredCarry levelBound digit.isLt enteredChain enteredStep enteredValue
-    refine ⟨prepared,8,?_,by simp [zero],partial_pc entered atPartial,
+    refine ⟨prepared,6,?_,by simp [zero],partial_pc entered atPartial,
       preparedData,?_,?_,?_⟩
-    · convert ordinary_trans verify s entered prepared 3 5 entryRun partialRun using 1 <;> omega
+    · convert ordinary_trans verify s entered prepared 1 5 entryRun partialRun using 1 <;> omega
     · have : prepared.getReg .x1 = entered.getReg .x1 := by
         simp [prepared,partialState,execInstrBr,MachineState.getReg_setReg_ne]
       exact this.trans e1

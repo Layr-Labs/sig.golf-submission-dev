@@ -101,9 +101,9 @@ theorem chainValueState_stack (s : MachineState) :
 def digitState (s : MachineState) : MachineState :=
   let s := execInstrBr s (.ADDI .x7 .x28 0x600)
   let s := execInstrBr s (.ADD .x7 .x7 .x6)
-  let s := execInstrBr s (.LBU .x10 .x7 0)
+  let s := execInstrBr s (.LBU .x30 .x7 0)
   let s := execInstrBr s (.ADDI .x28 .x28 0x438)
-  execInstrBr s (.JAL .x0 36)
+  execInstrBr s (.JAL .x0 1096)
 
 theorem digit_block (s : MachineState) (pc : s.pc = 0x14b4)
     (base : s.getReg .x28 = 0x80000)
@@ -111,9 +111,9 @@ theorem digit_block (s : MachineState) (pc : s.pc = 0x14b4)
     OrdinarySteps verify s 5 (digitState s) := by
   let s1 := execInstrBr s (.ADDI .x7 .x28 0x600)
   let s2 := execInstrBr s1 (.ADD .x7 .x7 .x6)
-  let s3 := execInstrBr s2 (.LBU .x10 .x7 0)
+  let s3 := execInstrBr s2 (.LBU .x30 .x7 0)
   let s4 := execInstrBr s3 (.ADDI .x28 .x28 0x438)
-  let s5 := execInstrBr s4 (.JAL .x0 36)
+  let s5 := execInstrBr s4 (.JAL .x0 1096)
   apply OrdinarySteps.step s s1 _ (.base (.ADDI .x7 .x28 0x600)) 4
   · have hp : s.pc = 0x14b4 := pc
     simp only [fetch,hp]; decide
@@ -122,7 +122,7 @@ theorem digit_block (s : MachineState) (pc : s.pc = 0x14b4)
   · have hp : s1.pc = 0x14b8 := by simp [s1,execInstrBr,pc]
     simp only [fetch,hp]; decide
   · rfl
-  apply OrdinarySteps.step s2 s3 _ (.base (.LBU .x10 .x7 0)) 2
+  apply OrdinarySteps.step s2 s3 _ (.base (.LBU .x30 .x7 0)) 2
   · have hp : s2.pc = 0x14bc := by simp [s1,s2,execInstrBr,pc,BitVec.add_assoc]
     simp only [fetch,hp]; decide
   · simpa [s1,s2,s3,ordinaryStep,memoryArgumentsValid,execInstrBr,signExtend12,
@@ -131,7 +131,7 @@ theorem digit_block (s : MachineState) (pc : s.pc = 0x14b4)
   · have hp : s3.pc = 0x14c0 := by simp [s1,s2,s3,execInstrBr,pc,BitVec.add_assoc]
     simp only [fetch,hp]; decide
   · rfl
-  apply OrdinarySteps.step s4 s5 _ (.base (.JAL .x0 36)) 0
+  apply OrdinarySteps.step s4 s5 _ (.base (.JAL .x0 1096)) 0
   · have hp : s4.pc = 0x14c4 := by simp [s1,s2,s3,s4,execInstrBr,pc,BitVec.add_assoc]
     simp only [fetch,hp]; decide
   · rfl
@@ -142,12 +142,12 @@ theorem digit_mem (s : MachineState) (a : Word) :
   simp [digitState,execInstrBr]
 
 theorem digit_pc (s : MachineState) (pc : s.pc = 0x14b4) :
-    (digitState s).pc = 0x14e8 := by
+    (digitState s).pc = 0x190c := by
   norm_num [digitState,execInstrBr,pc,signExtend21]
   decide
 
 theorem digit_regs (s : MachineState) (base : s.getReg .x28 = 0x80000) :
-    (digitState s).getReg .x10 = (s.getByte (0x80600 + s.getReg .x6)).zeroExtend 64 ∧
+    (digitState s).getReg .x30 = (s.getByte (0x80600 + s.getReg .x6)).zeroExtend 64 ∧
     (digitState s).getReg .x6 = s.getReg .x6 ∧
     (digitState s).getReg .x28 = 0x80438 ∧
     (digitState s).getReg .x1 = s.getReg .x1 ∧
@@ -189,8 +189,8 @@ theorem witness_prepare (s : MachineState) (level tree : Nat) (side : Bool)
     (value8 : s.getMem (chainSource s + 8) = value.extractLsb' 64 64)
     (digitEq : s.getByte (BitVec.ofNat 64 (0x80600 + chain.val)) =
       BitVec.ofNat 8 digit.val) :
-    ∃ ready, OrdinarySteps verify s 14 ready ∧ ready.pc = 0x14e8 ∧
-      ready.getReg .x10 = BitVec.ofNat 64 digit.val ∧
+    ∃ ready, OrdinarySteps verify s 14 ready ∧ ready.pc = 0x190c ∧
+      ready.getReg .x30 = BitVec.ofNat 64 digit.val ∧
       ready.getReg .x6 = BitVec.ofNat 64 chain.val ∧
       ready.getReg .x28 = 0x80438 ∧
       ready.getMem 0x80400 = BitVec.ofNat 64 level ∧

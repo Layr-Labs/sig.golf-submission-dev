@@ -108,8 +108,8 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
     (value8 : s.getMem (chainSource s + 8) = value.extractLsb' 64 64)
     (digitEq : s.getByte (BitVec.ofNat 64 (0x80600 + chain.val)) =
       BitVec.ofNat 8 digit.val) :
-    ∃ ready, OrdinarySteps verify s 12 ready ∧ ready.pc = 0x14e8 ∧
-      ready.getReg .x10 = BitVec.ofNat 64 digit.val ∧
+    ∃ ready, OrdinarySteps verify s 12 ready ∧ ready.pc = 0x190c ∧
+      ready.getReg .x30 = BitVec.ofNat 64 digit.val ∧
       ready.getReg .x6 = BitVec.ofNat 64 chain.val ∧
       ready.getReg .x28 = 0x80438 ∧
       ready.getMem 0x80400 = BitVec.ofNat 64 level ∧
