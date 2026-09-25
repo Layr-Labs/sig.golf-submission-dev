@@ -7,7 +7,6 @@
       "description": "Minimize signature bytes × RISC-V verification cycles for a Lean-certified stateless signature scheme under the pinned beta contract.",
       "category": "cryptography",
       "direction": "-",
-      "promotionMode": "manual",
       "editablePaths": [
         "submission"
       ],
