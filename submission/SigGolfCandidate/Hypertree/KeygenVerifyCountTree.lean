@@ -23,7 +23,7 @@ theorem recover_leaf_call_exact (hash : Hash) (s : MachineState) (level tree bas
       (data.bottom s tree base side message signature leaf) aligned (by omega)
     refine ⟨final, 109, 116, 1, 1, run, by decide, by decide, by decide, by decide, fpc, fsp, output, ?_, rfl⟩
     intro a hs outside
-    apply frame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2
+    apply frame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2.1
     exact ⟨fun i => outside.1.1 ⟨i.val, by have := i.isLt; omega⟩, outside.1.2.1,
       (fun i => outside.1.2.2.1 ⟨i.val, by omega⟩), outside.2⟩
   · have nonzero : BitVec.ofNat 64 level ≠ 0 := by

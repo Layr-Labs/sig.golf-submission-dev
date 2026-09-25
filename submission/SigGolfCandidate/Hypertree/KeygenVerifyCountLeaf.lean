@@ -20,7 +20,7 @@ theorem upper_leaf_body_exact (hash : Hash) (s : MachineState) (level tree : Nat
     readyData, endpoints, _, readySP, loopFrame, exactCalls⟩ := recover_all_chains_exact hash s level tree side base message values
       pc data counter aligned bound
   have words : ∀ i : Fin 92, ready.getMem (wordAddress 0x80800 i.val) =
-      KeygenLeafHeader.endpointWord (recoveredEndpoint hash level tree side message values) i := by
+      VerifyLeafHeaderDirect.endpointWord (recoveredEndpoint hash level tree side message values) i := by
     intro i
     have addr : KeygenEndpoint.endpointAddress (i.val/2) (i.val%2) = wordAddress 0x80800 i.val := by
       unfold KeygenEndpoint.endpointAddress wordAddress
@@ -29,16 +29,16 @@ theorem upper_leaf_body_exact (hash : Hash) (s : MachineState) (level tree : Nat
     rw [← addr]
     exact endpoints ⟨i.val/2, by have := i.isLt; omega⟩ ⟨i.val%2, by omega⟩
   have stack : ready.getReg .x2 = 0xffffe0 := readySP.trans sp
-  obtain ⟨final, suffix, finalPC, finalSP, output, suffixFrame⟩ := KeygenLeaf.compute_return verify hash 0x1690
+  obtain ⟨final, suffix, finalPC, finalSP, output, suffixFrame⟩ := VerifyLeafDirect.compute_return verify hash 0x1690
     verify_leaf_hash_code leaf_return_code ready readyPC level tree side
     (recoveredEndpoint hash level tree side message values) readyData.levelEq readyData.leafEq readyData.indexEq words
     (by rw [stack]; decide) (by rw [stack]; decide) (by rw [stack]; decide)
     (by rw [stack]; cases side <;> decide)
-  refine ⟨final, steps+615, cycles+710, calls, loop.trans suffix, by omega, by omega, hcalls, ?_, ?_, output, ?_, exactCalls⟩
+  refine ⟨final, steps+59, cycles+154, calls, loop.trans suffix, by omega, by omega, hcalls, ?_, ?_, output, ?_, exactCalls⟩
   · rw [finalPC, stack, loopFrame _ (by unfold OutsideLeafWork; decide)]
   · rw [finalSP, stack]; rfl
   · intro a outside
-    exact (suffixFrame a outside.1.1 outside.1.2.1 outside.2).trans (loopFrame a outside.1)
+    exact (suffixFrame a outside.1.2.2.2.2.2.2 outside.1.2.1 outside.2).trans (loopFrame a outside.1)
 
 theorem upper_leaf_call_exact (hash : Hash) (s : MachineState) (level tree : Nat) (side : Bool) (base : Nat)
     (message : Reference.Digest) (signature : Reference.LayerSignature)
@@ -66,7 +66,7 @@ theorem upper_leaf_call_exact (hash : Hash) (s : MachineState) (level tree : Nat
       (Reference.compressLeaf hash level tree side (recoveredEndpoint hash level tree side message signature.values)).extractLsb' (64*i.val) 64
     exact output i
   · intro a hs outside
-    rw [frame a outside, entryFrame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2]
+    rw [frame a outside, entryFrame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2.1]
 
 /-- info: 'SigGolfCandidate.Hypertree.KeygenVerifyCount.upper_leaf_call_exact' depends on axioms: [propext,
  Classical.choice,

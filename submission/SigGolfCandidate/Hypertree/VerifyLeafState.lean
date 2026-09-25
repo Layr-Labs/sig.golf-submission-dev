@@ -10,9 +10,10 @@ def OutsideLeafWork (a : Word) : Prop :=
   (∀ i : Fin 4, a ≠ wordAddress 0x80300 i.val) ∧
   (∀ i : Fin 4, a ≠ wordAddress 0x80510 i.val) ∧
   (∀ i : Fin 92, a ≠ wordAddress 0x80800 i.val) ∧ a ≠ 0x80430 ∧ a ≠ 0x80438
+  ∧ (∀ i : Fin 4, a ≠ wordAddress 0x807e0 i.val)
 
 theorem outside_leaf_chain (a : Word) (outside : OutsideLeafWork a) : OutsideChainWork a :=
-  ⟨fun i => outside.1 ⟨i.val, by have := i.isLt; omega⟩, outside.2.1, outside.2.2.1, outside.2.2.2.2.2⟩
+  ⟨fun i => outside.1 ⟨i.val, by have := i.isLt; omega⟩, outside.2.1, outside.2.2.1, outside.2.2.2.2.2.1⟩
 
 theorem outside_leaf_endpoint (a : Word) (outside : OutsideLeafWork a) (chain : Reference.Chain) (i : Fin 2) :
     a ≠ KeygenEndpoint.endpointAddress chain.val i.val := by
@@ -25,7 +26,7 @@ theorem outside_leaf_endpoint (a : Word) (outside : OutsideLeafWork a) (chain : 
   exact different
 
 theorem outside_leaf_of_lt (a : Word) (low : a.toNat < 0x80000) : OutsideLeafWork a := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro i eq
     have h := congrArg BitVec.toNat eq
     change a.toNat = (0x80000+8*i.val) % 2^64 at h
@@ -48,6 +49,11 @@ theorem outside_leaf_of_lt (a : Word) (low : a.toNat < 0x80000) : OutsideLeafWor
     omega
   · intro eq; subst a; contradiction
   · intro eq; subst a; contradiction
+  · intro i eq
+    have h := congrArg BitVec.toNat eq
+    change a.toNat = (0x807e0+8*i.val) % 2^64 at h
+    have := i.isLt
+    omega
 
 structure LeafData (s : MachineState) (level tree : Nat) (side : Bool) (base : Nat)
     (message : Reference.Digest) (values : Reference.Chain → Reference.Digest) : Prop where

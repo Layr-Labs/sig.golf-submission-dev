@@ -47,7 +47,7 @@ theorem upper_leaf_call (hash : Hash) (s : MachineState) (level tree : Nat) (sid
       (Reference.compressLeaf hash level tree side (recoveredEndpoint hash level tree side message signature.values)).extractLsb' (64*i.val) 64
     exact output i
   · intro a hs outside
-    rw [frame a outside, entryFrame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2]
+    rw [frame a outside, entryFrame a hs outside.1.2.2.2.2.1 outside.1.2.2.2.2.2.1]
 
 /-- info: 'SigGolfCandidate.Hypertree.Verifying.upper_leaf_call' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
