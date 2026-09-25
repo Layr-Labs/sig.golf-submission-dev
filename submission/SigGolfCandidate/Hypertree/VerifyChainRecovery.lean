@@ -137,8 +137,4 @@ theorem recover_chain_fragment_fast (hash : Hash) (s : MachineState)
   · rw [frame _ (by unfold OutsideChainWork; decide)]
     exact chainEq
 
-/-- The verifier's endpoint store is the shared checked store-and-advance block. -/
-theorem verify_endpoint_code : KeygenEndpoint.CodeAt verify 0x163c (-508) 32 40 := by decide
-
-
 end SigGolfCandidate.Hypertree.Verifying

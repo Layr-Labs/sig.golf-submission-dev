@@ -12,7 +12,7 @@ theorem layout_offsets : submission.layout =
   { message := 0, secretKey := 32, publicKey := 64, cache := 96,
     signature := 131168, witness := 250800 } := by rfl
 
-theorem certificate : SigGolf.Certificate submission 750926 :=
+theorem certificate : SigGolf.Certificate submission 707042 :=
   SigGolfCandidate.Hypertree.ChecksumCandidate.certificate
 
 end SigGolf.Challenge
