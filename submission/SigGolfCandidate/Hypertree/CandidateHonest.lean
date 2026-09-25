@@ -39,7 +39,7 @@ theorem pipeline_success {σ ω : Type} (hash : Hash) (keygen : OracleComp HashS
 
 /-- Every message succeeds against each single fixed oracle, with exact budgeted-phase costs. -/
 theorem honest_exact (hash : Hash) (secretKey : SecretKey) (message : Message) :
-    ∃ cycles calls blocks, cycles≤5883520 ∧ calls≤51841 ∧ blocks≤53602 ∧
+    ∃ cycles calls blocks, cycles≤5889440 ∧ calls≤51841 ∧ blocks≤53602 ∧
       evalWithAnswerFn hash (submission.honest secretKey message)=
         ⟨true,fun phase => match phase with | .keygen => 761 | .sign => 121008 | .expand => 0 | .verify => blocks,cycles⟩ := by
   let pk := Reference.keygen hash secretKey
@@ -50,7 +50,7 @@ theorem honest_exact (hash : Hash) (secretKey : SecretKey) (message : Message) :
     rw [wire_decode]
     exact signCompact_correct hash secretKey message
   rw [if_pos correct] at verifyRun
-  refine ⟨cycles,calls,blocks,cycleBound,callBound,blockBound,?_⟩
+  refine ⟨cycles,calls,blocks,by omega,callBound,blockBound,?_⟩
   rw [honest_eq_pipeline]
   exact pipeline_success hash (submission.run .keygen secretKey)
     (fun _ c => submission.run .sign (secretKey,c,message))

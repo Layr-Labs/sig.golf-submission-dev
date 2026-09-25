@@ -29,7 +29,9 @@ theorem shift_word_frame (s : MachineState) (a : Word)
 theorem sign_layer_prepare (hash : Hash) (s : MachineState) (secretKey : SecretKey) (level index : Nat)
     (current : Reference.Digest) (pc : s.pc = 0x1220) (bound : level < 160) (small : index < 2^192)
     (data : LoopData s secretKey level index current) :
-    ∃ ready, Trace hash sign s (if level = 0 then 34 else 489) (if level = 0 then 34 else 489) 0 0 ready ∧
+    ∃ ready, Trace hash sign s
+      (if level = 0 then 34 else if Reference.needsFlip current then 526 else 494)
+      (if level = 0 then 34 else if Reference.needsFlip current then 526 else 494) 0 0 ready ∧
       ready.pc = 0x13c8 ∧ ready.getReg .x1 = 0x12ac ∧ ready.getReg .x2 = 0x1000000 ∧
       TreeContext ready secretKey level (index/2) ∧
       ready.getMem 0x80448 = BitVec.ofNat 64 (0x20060+layerOffset level) ∧ ready.getMem 0x80440 = 1 ∧
@@ -64,7 +66,11 @@ theorem sign_layer_prepare (hash : Hash) (s : MachineState) (secretKey : SecretK
   have zero : shifted.getMem 0x80400 = 0 ↔ level = 0 := by rw [shiftedLevel]; exact level_word_zero level bound
   refine ⟨ready,?_,readyPC,readyRA,readySP.trans shiftedSP,?_,?_,?_,?_,?_,?_⟩
   · have run := shiftRun.trace (hash := hash) |>.trans dispatch.trace
-    by_cases h : level = 0 <;> simpa only [zero,h,if_true,if_false,Nat.reduceAdd] using run
+    by_cases h : level = 0
+    · simpa only [zero, h, if_true, Nat.reduceAdd] using run
+    · by_cases flip : Reference.needsFlip current
+      · simpa only [zero, h, flip, if_true, if_false, Nat.reduceAdd] using run
+      · simpa only [zero, h, flip, if_true, if_false, Nat.reduceAdd] using run
   · constructor
     · exact (keep 0x80400 (by decide) (by decide) (by decide) (by decide)).trans shiftedLevel
     · intro i

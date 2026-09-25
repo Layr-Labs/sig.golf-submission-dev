@@ -23,10 +23,21 @@ def sideNumber (side : Bool) : Nat := if side then 1 else 0
 
 def messageDigit (message : Digest) (i : Fin 43) : Nat := message.toNat / 8 ^ i.val % 8
 
-def checksum (message : Digest) : Nat := 301 - ∑ i : Fin 43, messageDigit message i
+def rawSum (message : Digest) : Nat :=
+  ∑ i : Fin 43, messageDigit message i
+
+abbrev needsFlip (message : Digest) : Prop := rawSum message < 151
+
+def payloadDigit (message : Digest) (i : Fin 43) : Nat :=
+  if needsFlip message then 7 - messageDigit message i else messageDigit message i
+
+def payloadSum (message : Digest) : Nat :=
+  ∑ i : Fin 43, payloadDigit message i
+
+def checksum (message : Digest) : Nat := 301 - payloadSum message
 
 def digit (message : Digest) (i : Chain) : Fin 8 :=
-  ⟨(if i.val < 43 then message.toNat / 8 ^ i.val
+  ⟨(if i.val < 43 then payloadDigit message ⟨i.val % 43, Nat.mod_lt _ (by decide)⟩
     else checksum message / 8 ^ (i.val - 43)) % 8, Nat.mod_lt _ (by decide)⟩
 
 def secret (hash : Hash) (secretKey : SecretKey) (level tree : Nat) (side : Bool) (chain : Chain) : Digest :=

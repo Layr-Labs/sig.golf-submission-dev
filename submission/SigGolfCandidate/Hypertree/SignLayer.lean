@@ -10,7 +10,7 @@ theorem sign_layer (hash : Hash) (s : MachineState) (secretKey : SecretKey) (lev
     (data : LoopData s secretKey level index current) :
     ∃ final instructions cycles, Trace hash sign s instructions cycles
       (if level = 0 then 5 else 739) (if level = 0 then 5 else 761) final ∧
-      instructions ≤ (if level = 0 then 588 else 100417) ∧ cycles ≤ (if level = 0 then 623 else 105766) ∧
+      instructions ≤ (if level = 0 then 588 else 100454) ∧ cycles ≤ (if level = 0 then 623 else 105803) ∧
       final.pc = (if level+1=160 then 0x12f8 else 0x1220) ∧
       LoopData final secretKey (level+1) (index/2) (Reference.treeRoot hash secretKey level (index/2)) ∧
       LayerStored final (0x20060+layerOffset level) level
@@ -38,8 +38,14 @@ theorem sign_layer (hash : Hash) (s : MachineState) (secretKey : SecretKey) (lev
   have total := pre.trans (body.trans advance.trace)
   simp only [zero,Nat.zero_add,Nat.add_zero] at total
   refine ⟨advanceState done,_,_,total,?_,?_,nextPC,?_,?_,?_⟩
-  · by_cases h : level=0 <;> simp only [h,if_true,if_false] at nb ⊢ <;> omega
-  · by_cases h : level=0 <;> simp only [h,if_true,if_false] at cb ⊢ <;> omega
+  · by_cases h : level=0
+    · simp only [h, if_true] at nb ⊢; omega
+    · by_cases flip : Reference.needsFlip current <;>
+        simp only [h, flip, if_true, if_false] at nb ⊢ <;> omega
+  · by_cases h : level=0
+    · simp only [h, if_true] at cb ⊢; omega
+    · by_cases flip : Reference.needsFlip current <;>
+        simp only [h, flip, if_true, if_false] at cb ⊢ <;> omega
   · constructor
     · rw [advanceState_sp,doneSP,readySP]
     · exact after.1

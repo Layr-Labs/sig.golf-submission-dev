@@ -1,72 +1,93 @@
-import SigGolfCandidate.Hypertree.Reference
+import SigGolfCandidate.Hypertree.GroupedBalanced
+import RiscvZkvm.Rv64.Instructions
 
 namespace SigGolfCandidate.Hypertree.Reference
+open RiscvZkvm.Rv64
 
-/-- Comparing every base-8 digit compares the represented natural numbers. -/
-private theorem base8_le (count m n : Nat) (hm : m < 8 ^ count) (hn : n < 8 ^ count)
-    (digits : ∀ i, i < count → m / 8 ^ i % 8 ≤ n / 8 ^ i % 8) : m ≤ n := by
-  induction count generalizing m n with
-  | zero => simp only [pow_zero] at hm hn; omega
-  | succ count ih =>
-    have hm' : m / 8 < 8 ^ count := by
-      rw [Nat.div_lt_iff_lt_mul (by decide)]
-      simpa only [pow_succ] using hm
-    have hn' : n / 8 < 8 ^ count := by
-      rw [Nat.div_lt_iff_lt_mul (by decide)]
-      simpa only [pow_succ] using hn
-    have tails : m / 8 ≤ n / 8 := ih _ _ hm' hn' (by
-      intro i hi
-      have h := digits (i + 1) (by omega)
-      simpa only [Nat.div_div_eq_div_mul, pow_succ, Nat.mul_comm] using h)
-    have heads := digits 0 (by omega)
-    simp only [pow_zero, Nat.div_one] at heads
+private theorem imm_neg151 :
+    signExtend12 (-151 : BitVec 12) = (18446744073709551465 : Word) := by
+  decide
+
+private theorem nat_branch (c : Nat) (bound : c ≤ 301) :
+    ((c + 18446744073709551465) % 18446744073709551616) / 9223372036854775808 =
+      if c < 151 then 1 else 0 := by
+  by_cases h : c < 151
+  · rw [if_pos h, Nat.mod_eq_of_lt
+      (by omega : c + 18446744073709551465 < 18446744073709551616)]
     omega
+  · have heq : c + 18446744073709551465 = (c - 151) + 18446744073709551616 := by omega
+    rw [if_neg h, heq, Nat.add_mod_right,
+      Nat.mod_eq_of_lt (by omega : c - 151 < 18446744073709551616)]
+    exact Nat.div_eq_of_lt (by omega)
 
-private theorem digit_sum_bound (message : Digest) :
-    (∑ i : Fin 43, messageDigit message i) ≤ 301 := by
-  calc
-    _ ≤ ∑ _i : Fin 43, (7 : Nat) := Finset.sum_le_sum (fun i _ => by
-      unfold messageDigit
-      have bound := Nat.mod_lt (message.toNat / 8 ^ i.val) (by decide : 0 < 8)
-      omega)
-    _ = 301 := by simp
+private theorem branch_lhs_nat (c : Nat) (bound : c ≤ 301) :
+    (((BitVec.ofNat 64 c + signExtend12 (-151 : BitVec 12)) >>> 63) : Word).toNat =
+      ((c + 18446744073709551465) % 18446744073709551616) / 9223372036854775808 := by
+  rw [imm_neg151, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, BitVec.toNat_add]
+  have hc : (BitVec.ofNat 64 c).toNat = c := by
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : c < 2 ^ 64)]
+  have hm : (18446744073709551465 : Word).toNat = 18446744073709551465 := by decide
+  rw [hc, hm]
 
-/-- A signature cannot be retargeted to a different digest merely by walking every chain forward. This is an encoding property, not the full random-oracle security theorem. -/
+/-- The signed ADDI/SRLI branch bit selects the balanced payload flip. -/
+theorem rawChecksum_branchBit (c : Nat) (bound : c ≤ 301) :
+    ((BitVec.ofNat 64 c + signExtend12 (-151 : BitVec 12)) >>> 63) =
+      if c < 151 then (1 : Word) else (0 : Word) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [branch_lhs_nat c bound, nat_branch c bound]
+  split_ifs <;> decide
+
+/-- info: 'SigGolfCandidate.Hypertree.Reference.rawChecksum_branchBit' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms rawChecksum_branchBit
+
+/-- The raw loop checksum crosses 150 exactly when the payload flips. -/
+theorem needsFlip_iff_rawChecksum_gt_150 (message : Digest) :
+    needsFlip message ↔ 150 < 301 - rawSum message := by
+  have bound : rawSum message ≤ 301 := Balanced.raw_sum_le message
+  change rawSum message < 151 ↔ 150 < 301 - rawSum message
+  omega
+
+/-- The retained raw message digits feed the balanced payload transform. -/
+theorem payloadDigit_eq_balanced (message : Digest) (i : Fin 43) :
+    payloadDigit message i = Balanced.payloadDigit message i := by
+  rfl
+
+theorem checksum_eq_balanced (message : Digest) :
+    checksum message = Balanced.checksum message := by
+  rfl
+
+theorem checksum_le_balanced (message : Digest) : checksum message ≤ 150 := by
+  exact Balanced.checksum_le message
+
+theorem checksum_of_flip (message : Digest) (flip : needsFlip message) :
+    checksum message = rawSum message := by
+  have payload : payloadSum message = 301 - rawSum message :=
+    Balanced.payload_sum_flip message flip
+  have bound : rawSum message ≤ 301 := Balanced.raw_sum_le message
+  unfold checksum
+  omega
+
+theorem checksum_of_no_flip (message : Digest) (flip : ¬ needsFlip message) :
+    checksum message = 301 - rawSum message := by
+  have same : payloadSum message = rawSum message := by
+    unfold payloadSum
+    simp only [payloadDigit, if_neg flip]
+    rfl
+  simp only [checksum, same]
+
+/-- The bytecode reference and standalone balanced encoding use the same digits. -/
+theorem digit_eq_balanced (message : Digest) (i : Chain) :
+    digit message i = Balanced.digit message i := by
+  rfl
+
+/-- No different digest can be forged by advancing every revealed chain. -/
 theorem digits_antichain (x y : Digest)
     (ordered : ∀ i : Chain, (digit x i).val ≤ (digit y i).val) : x = y := by
-  have messages : ∀ i : Fin 43, messageDigit x i ≤ messageDigit y i := by
-    intro i
-    have h := ordered ⟨i.val, by omega⟩
-    simpa only [digit, i.isLt, ↓reduceIte, messageDigit] using h
-  have sum_le : (∑ i : Fin 43, messageDigit x i) ≤ ∑ i : Fin 43, messageDigit y i :=
-    Finset.sum_le_sum (fun i _ => messages i)
-  have checksum_le : checksum x ≤ checksum y := by
-    apply base8_le 3
-    · unfold checksum
-      omega
-    · unfold checksum
-      omega
-    · intro i hi
-      have h := ordered ⟨43 + i, by omega⟩
-      simpa [digit, show ¬ 43 + i < 43 by omega] using h
-  have hx := digit_sum_bound x
-  have hy := digit_sum_bound y
-  have same_sum : (∑ i : Fin 43, messageDigit x i) = ∑ i : Fin 43, messageDigit y i := by
-    unfold checksum at checksum_le
-    omega
-  have same_digits := (Finset.sum_eq_sum_iff_of_le (fun i (_ : i ∈ (Finset.univ : Finset (Fin 43))) => messages i)).mp same_sum
-  have xbound : x.toNat < 8 ^ 43 := lt_of_lt_of_le x.isLt (by decide)
-  have ybound : y.toNat < 8 ^ 43 := lt_of_lt_of_le y.isLt (by decide)
-  apply BitVec.eq_of_toNat_eq
-  apply Nat.le_antisymm
-  · apply base8_le 43 _ _ xbound ybound
-    intro i hi
-    exact (same_digits ⟨i, hi⟩ (by simp)).le
-  · apply base8_le 43 _ _ ybound xbound
-    intro i hi
-    exact (same_digits ⟨i, hi⟩ (by simp)).ge
+  apply Balanced.digits_antichain
+  intro i
+  simpa only [← digit_eq_balanced] using ordered i
 
-/-- Changing the digest requires an earlier position in at least one revealed chain. -/
 theorem distinct_digest_has_earlier_digit (x y : Digest) (different : x ≠ y) :
     ∃ i : Chain, (digit y i).val < (digit x i).val := by
   by_contra h

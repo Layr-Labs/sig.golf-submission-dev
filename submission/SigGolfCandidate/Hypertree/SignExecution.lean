@@ -11,7 +11,7 @@ theorem sign_execution (hash : Hash) (secretKey : SecretKey) (cache : Cache) (me
     ∃ initial final instructions cycles,
       initialState submission .sign (secretKey,cache,message)=some initial ∧
       Executes hash sign initial instructions ⟨.success,final,cycles,117508,121008⟩ ∧
-      instructions≤16066973 ∧ cycles≤16922843 ∧
+      instructions≤16072893 ∧ cycles≤16928763 ∧
       LayersStored final 0 (Reference.sign hash secretKey message).layers ∧
       (∀ i : Fin 4, final.getMem (wordAddress 0x20060 i.val)=
         (Reference.sign hash secretKey message).randomizer.extractLsb' (64*i.val) 64) := by

@@ -149,7 +149,7 @@ theorem encodeSum_bound (message : BitVec 128) : encodeSum message 43 ≤ 301 :=
     _ = 301 := by simp
 
 /-- The complete 43-round message-digit loop terminates in exactly 430 ordinary
-instructions, stores the reference digits and computes the reference checksum. -/
+instructions, stores the raw digits, and computes their raw checksum. -/
 theorem encode_message_refines (image : Image) (base : Word) (code : EncodeLoopCode image base)
     (message : Reference.Digest) (s : MachineState)
     (pc : s.pc = base)
@@ -159,7 +159,7 @@ theorem encode_message_refines (image : Image) (base : Word) (code : EncodeLoopC
     (checksum : s.getReg .x12 = 301) :
     ∃ final, OrdinarySteps image s 430 final ∧ final.pc = base + 40 ∧
       final.getReg .x10 = 0x8062b ∧
-      final.getReg .x12 = BitVec.ofNat 64 (Reference.checksum message) ∧
+      final.getReg .x12 = BitVec.ofNat 64 (301 - Reference.rawSum message) ∧
       (∀ i : Fin 43, final.getByte (BitVec.ofNat 64 (0x80600 + i.val)) =
         BitVec.ofNat 8 (Reference.messageDigit message i)) ∧
       (∀ a, (∀ i : Fin 43, a ≠ BitVec.ofNat 64 (0x80600 + i.val)) → final.getByte a = s.getByte a) ∧ final.getReg .x2 = s.getReg .x2 := by
@@ -171,7 +171,8 @@ theorem encode_message_refines (image : Image) (base : Word) (code : EncodeLoopC
   · rw [inv.2.2.2.2.2.2]
     have bound := encodeSum_bound message
     change BitVec.ofNat 64 301 - BitVec.ofNat 64 (encodeSum message 43) = _
-    rw [BitVec.ofNat_sub_ofNat_of_le 301 (encodeSum message 43) (by omega) bound, encodeSum_reference]
+    rw [BitVec.ofNat_sub_ofNat_of_le 301 (encodeSum message 43) (by omega) bound,
+      encodeSum_reference]
     rfl
   · intro i
     exact output i.val (by have := i.isLt; omega)

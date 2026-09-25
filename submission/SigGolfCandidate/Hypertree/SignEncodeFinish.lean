@@ -113,16 +113,6 @@ theorem checksum_digit (checksum : Nat) (bound : checksum ≤ 301) (i : Fin 3) :
   rw [show (7 : Nat) = 2 ^ 3 - 1 by decide, Nat.and_two_pow_sub_one_eq_mod]
   fin_cases i <;> simp
 
-theorem sign_checksum_code : ChecksumCode sign 0x1398 := by
-  intro s i pc
-  simp only [fetch, pc]
-  fin_cases i <;> decide
-
-theorem verify_checksum_code : ChecksumCode verify 0x12c0 := by
-  intro s i pc
-  simp only [fetch, pc]
-  fin_cases i <;> decide
-
 theorem checksumState_output (s : MachineState) (checksum : Nat) (bound : checksum ≤ 301)
     (ptr : s.getReg .x10 = 0x8062b) (value : s.getReg .x12 = BitVec.ofNat 64 checksum)
     (i : Fin 3) :
@@ -157,13 +147,20 @@ theorem checksumState_refines (s : MachineState) (message : Reference.Digest)
     (ptr : s.getReg .x10 = 0x8062b)
     (value : s.getReg .x12 = BitVec.ofNat 64 (Reference.checksum message))
     (digits : ∀ i : Fin 43, s.getByte (BitVec.ofNat 64 (0x80600 + i.val)) =
-      BitVec.ofNat 8 (Reference.messageDigit message i)) :
+      BitVec.ofNat 8 (Reference.payloadDigit message i)) :
     ∀ i : Reference.Chain, (checksumState s).getByte (BitVec.ofNat 64 (0x80600 + i.val)) =
       BitVec.ofNat 8 (Reference.digit message i).val := by
   intro i
   by_cases small : i.val < 43
   · rw [checksumState_frame s ptr, digits ⟨i.val, small⟩]
-    · simp [Reference.digit, Reference.messageDigit, small]
+    · have rawLt : Reference.messageDigit message ⟨i.val, small⟩ < 8 := by
+        unfold Reference.messageDigit
+        exact Nat.mod_lt _ (by decide)
+      have payloadLt : Reference.payloadDigit message ⟨i.val, small⟩ < 8 := by
+        unfold Reference.payloadDigit
+        split_ifs <;> omega
+      simpa [Reference.digit, small, Nat.mod_eq_of_lt small,
+        Nat.mod_eq_of_lt payloadLt]
     · intro j
       have hj := j.isLt
       have eq : 0x8062b + j.val = 0x80600 + (43 + j.val) := by omega

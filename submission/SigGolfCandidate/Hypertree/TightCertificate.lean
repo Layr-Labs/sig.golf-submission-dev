@@ -3,11 +3,10 @@ import SigGolfCandidate.Hypertree.Certificate
 /-!
 A sharper certificate for the existing images. The old bound charges all 160
 layers as WOTS layers. The bottom layer instead uses a single hash leaf
-(116 rather than 36,144 cycles), skips digit encoding (5 rather than 460
+(116 rather than 36,144 cycles), skips digit encoding (5 rather than 497
 instructions), and advances in 17 rather than 18 instructions. Retaining
-these three distinctions saves 36,484 cycles in the universal bound.
+these three distinctions saves 36,521 cycles in the universal bound.
 
-This changes the proved bound, not the algorithm or its measured runtime.
 The existing completeness, termination, budgets, and security proofs are reused.
 -/
 
@@ -52,7 +51,7 @@ theorem prepare_tree (s : MachineState) (level index : Nat) (side : Bool)
     (pc : s.pc = 0x11bc) (small : level < 160)
     (data : LoopData s level index current witness)
     (selector : s.getMem 0x80420 = BitVec.ofNat 64 (Reference.sideNumber side)) :
-    ∃ ready steps, OrdinarySteps verify s steps ready ∧ steps ≤ (if level = 0 then 5 else 460) ∧
+    ∃ ready steps, OrdinarySteps verify s steps ready ∧ steps ≤ (if level = 0 then 5 else 497) ∧
       ready.pc = 0x12f0 ∧ ready.getReg .x1 = 0x11d4 ∧ ready.getReg .x2 = 0x1000000 ∧
       LayerData ready level index (0x3d3b0+layerOffset level) side current (wireLayer witness level) ∧
       LowFrame s ready := by
@@ -70,7 +69,7 @@ theorem prepare_tree (s : MachineState) (level index : Nat) (side : Bool)
   refine ⟨ready, _, run, ?_, readyPC, readyRA, readySP.trans data.stack, ?_, lowFrame⟩
   · rw [data.levelEq]
     simp only [level_word_zero level small]
-    split <;> decide
+    split_ifs <;> omega
   · constructor
     · exact (words 0x80400 (by decide) (by decide) (by decide) (by decide)).trans data.levelEq
     · intro i
@@ -136,7 +135,7 @@ theorem verify_layer_tree (hash : Hash) (s : MachineState) (level index : Nat) (
     (data : LoopData s level index current witness)
     (selector : s.getMem 0x80420 = BitVec.ofNat 64 (Reference.sideNumber side)) :
     ∃ final steps cycles calls blocks, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 34368 ∧ cycles ≤ (if level = 0 then 241 else 36724) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
+      steps ≤ 34405 ∧ cycles ≤ (if level = 0 then 241 else 36761) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
       final.pc = 0x11d4 ∧
       LoopData final level index (Reference.recoverLayer hash level index side current (wireLayer witness level)) witness ∧
       LowFrame s final := by
@@ -163,7 +162,7 @@ theorem verify_layer (hash : Hash) (s : MachineState) (level index : Nat)
     (pc : s.pc = 0x1148) (small : level < 160) (indexSmall : index < 2^192)
     (data : LoopData s level index current witness) :
     ∃ final steps cycles calls blocks, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 34415 ∧ cycles ≤ (if level = 0 then 287 else 36771) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
+      steps ≤ 34452 ∧ cycles ≤ (if level = 0 then 287 else 36808) ∧ calls ≤ 324 ∧ blocks ≤ 335 ∧
       final.pc = (if level+1 = 160 then 0x1220 else 0x1148) ∧
       LoopData final (level+1) (index/2)
         (Reference.recoverLayer hash level (index/2) (index%2 == 1) current (wireLayer witness level)) witness ∧
@@ -192,7 +191,7 @@ theorem verify_layers (hash : Hash) (witness : Bytes signatureBytes) (count leve
     (pc : s.pc = if count = 0 then 0x1220 else 0x1148)
     (data : LoopData s level index current witness) :
     ∃ final steps cycles calls blocks lastIndex, Trace hash verify s steps cycles calls blocks final ∧
-      steps ≤ 34415*count ∧ cycles ≤ 36771*count - (if level = 0 then 36484 else 0) ∧ calls ≤ 324*count ∧ blocks ≤ 335*count ∧
+      steps ≤ 34452*count ∧ cycles ≤ 36808*count - (if level = 0 then 36521 else 0) ∧ calls ≤ 324*count ∧ blocks ≤ 335*count ∧
       final.pc = 0x1220 ∧
       LoopData final 160 lastIndex (Reference.recoverLayers hash level index current (wireLayers witness count level)) witness ∧
       LowFrame s final := by
@@ -221,7 +220,7 @@ theorem loaded_recovery (hash : Hash) (pk : PublicKey) (message : Message) (witn
     ∃ initial recovered steps cycles calls blocks,
       initialState submission .verify (message, pk, witness) = some initial ∧
       Trace hash verify initial steps cycles calls blocks recovered ∧
-      steps ≤ 5506530 ∧ cycles ≤ 5847021 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
+      steps ≤ 5512450 ∧ cycles ≤ 5852904 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
       recovered.pc = 0x1220 ∧
       (RootMatches recovered ↔ Reference.verify hash pk message (SignatureEncoding.decode witness).toReference) := by
   obtain ⟨initial, ready, loaded, pre, pc, data, preFrame⟩ := loaded_loop_data hash pk message witness
@@ -232,7 +231,7 @@ theorem loaded_recovery (hash : Hash) (pk : PublicKey) (message : Message) (witn
     omega
   obtain ⟨recovered, steps, cycles, calls, blocks, lastIndex, run, hsteps, hcycles, hcalls, hblocks, finalPC, finalData, frame⟩ :=
     verify_layers hash witness 160 0 index ready 0 rfl indexSmall (by simpa using pc) data
-  change cycles ≤ 5846876 at hcycles
+  change cycles ≤ 5852759 at hcycles
   have allFrame := preFrame.trans initial ready recovered frame
   have pkWords : ∀ i : Fin 2, recovered.getMem (wordAddress 0x40 i.val) = pk.extractLsb' (64*i.val) 64 := by
     intro i
@@ -250,7 +249,7 @@ theorem loaded_recovery (hash : Hash) (pk : PublicKey) (message : Message) (witn
   rfl
 
 theorem run_refines (hash : Hash) (pk : PublicKey) (message : Message) (witness : Bytes signatureBytes) :
-    ∃ cycles calls blocks, cycles ≤ 5847036 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
+    ∃ cycles calls blocks, cycles ≤ 5852919 ∧ calls ≤ 51841 ∧ blocks ≤ 53602 ∧
       submission.runWith hash .verify (message, pk, witness) =
         ⟨if Reference.verify hash pk message (SignatureEncoding.decode witness).toReference then some () else none,
           true, cycles, calls, blocks⟩ := by
@@ -279,7 +278,7 @@ open SigGolf OracleComp KeygenOrganizer SignatureEncoding Candidate
 set_option maxRecDepth 4096
 
 theorem honest_exact (hash : Hash) (secretKey : SecretKey) (message : Message) :
-    ∃ cycles calls blocks, cycles≤5847036 ∧ calls≤51841 ∧ blocks≤53602 ∧
+    ∃ cycles calls blocks, cycles≤5852919 ∧ calls≤51841 ∧ blocks≤53602 ∧
       evalWithAnswerFn hash (submission.honest secretKey message)=
         ⟨true,fun phase => match phase with | .keygen => 761 | .sign => 121008 | .expand => 0 | .verify => blocks,cycles⟩ := by
   let pk := Reference.keygen hash secretKey
@@ -299,7 +298,7 @@ theorem honest_exact (hash : Hash) (secretKey : SecretKey) (message : Message) :
     82446 739 761 signCycles 117508 121008 89733 0 0 cycles calls blocks
     (KeygenFunctional.run_exact hash secretKey) signRun (expand_exact hash message pk signature) verifyRun
 
-theorem verificationBound : submission.VerificationBound 5847036 := by
+theorem verificationBound : submission.VerificationBound 5852919 := by
   intro hash secretKey message
   dsimp only
   intro _
@@ -308,7 +307,7 @@ theorem verificationBound : submission.VerificationBound 5847036 := by
   exact cycleBound
 
 /-- Tighter certificate for exactly the original program images: the bottom layer has no WOTS chains. -/
-theorem certificate : SigGolf.Certificate submission 5847036 :=
+theorem certificate : SigGolf.Certificate submission 5852919 :=
   ⟨admitted, Candidate.termination, Candidate.completeness, Candidate.compressionBounds,
     Candidate.security, verificationBound⟩
 

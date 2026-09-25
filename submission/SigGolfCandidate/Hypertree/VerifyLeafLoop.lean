@@ -1,5 +1,6 @@
 import SigGolfCandidate.Hypertree.VerifyLeafStep
 import SigGolfCandidate.Hypertree.VerifyHoistWord
+import SigGolfCandidate.Hypertree.GroupedBalanced
 
 namespace SigGolfCandidate.Hypertree.Verifying
 open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 Keygen Signing
@@ -24,24 +25,29 @@ theorem chainPrefixFast_message (message : Reference.Digest) :
   rw [← Fin.sum_univ_eq_sum_range]
   have terms : (∑ i : Fin 43,
       (7 - (Reference.digit message ⟨i.val % 46, Nat.mod_lt _ (by decide)⟩).val)) =
-      ∑ i : Fin 43, (7 - Reference.messageDigit message i) := by
+      ∑ i : Fin 43, (7 - Reference.payloadDigit message i) := by
     apply Finset.sum_congr rfl
     intro i _
-    simp [Reference.digit, Reference.messageDigit,
-      Nat.mod_eq_of_lt (by omega : i.val < 46), i.isLt]
+    have hi : Reference.payloadDigit message i < 8 := by
+      exact Balanced.payload_digit_lt_eight message i
+    simp [Reference.digit, Nat.mod_eq_of_lt (by omega : i.val < 46),
+      Nat.mod_eq_of_lt i.isLt, Nat.mod_eq_of_lt hi]
   rw [terms, Finset.sum_tsub_distrib]
-  · simp
+  · simp only [Finset.sum_const, Finset.card_fin, nsmul_eq_mul, Reference.payloadSum]
+    rfl
   · intro i _
-    unfold Reference.messageDigit
+    have hi : Reference.payloadDigit message i < 8 := by
+      exact Balanced.payload_digit_lt_eight message i
     omega
+
+theorem chainPrefixFast_bound_balanced (message : Reference.Digest) :
+    chainPrefixFast message 46 ≤ 161 := by
+  change Balanced.chainPrefix message 46 ≤ 161
+  exact Balanced.chain_prefix_bound message
 
 theorem chainPrefixFast_bound (message : Reference.Digest) :
     chainPrefixFast message 46 ≤ 308 := by
-  have bound : Reference.checksum message ≤ 301 := Nat.sub_le _ _
-  rw [chainPrefixFast_succ message 45 (by decide),
-    chainPrefixFast_succ message 44 (by decide),
-    chainPrefixFast_succ message 43 (by decide), chainPrefixFast_message]
-  norm_num [Reference.digit]
+  have bound := chainPrefixFast_bound_balanced message
   omega
 
 def EndpointPrefix (s : MachineState) (values : Reference.Chain → Reference.Digest) (n : Nat) : Prop :=

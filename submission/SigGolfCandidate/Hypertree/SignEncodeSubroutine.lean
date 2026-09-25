@@ -1,4 +1,6 @@
 import SigGolfCandidate.Hypertree.SignEncodeFinish
+import SigGolfCandidate.Hypertree.BalancedEncodeCode
+import SigGolfCandidate.Hypertree.BalancedPatchRefines
 
 namespace SigGolfCandidate.Hypertree.Signing
 open SigGolf SigGolf.Riscv RiscvZkvm.Rv64
@@ -113,7 +115,8 @@ structure EncodeCode (image : Image) (base : Word) : Prop where
   enter : Keygen.EnterCode image base
   setup : EncodeSetupCode image (base + 8)
   loop : EncodeLoopCode image (base + 48)
-  checksum : ChecksumCode image (base + 88)
+  patch : EncodePatchCode image base
+  rest : ChecksumRestCode image (base + 92)
   leave : Keygen.ReturnCode image (base + 124)
 
 /-- Equal bytes in an aligned word imply equal word memory, for rebuilding a saved return address. -/
@@ -135,10 +138,13 @@ theorem encode_subroutine (image : Image) (base : Word) (code : EncodeCode image
     (stack : s.getReg .x2 = 0x1000000)
     (lo : s.getMem 0x80500 = message.extractLsb' 0 64)
     (hi : s.getMem 0x80508 = message.extractLsb' 64 64) :
-    ∃ final, OrdinarySteps image s 454 final ∧ final.pc = s.getReg .x1 &&& ~~~1#64 ∧
+    ∃ final, OrdinarySteps image s
+      (if Reference.needsFlip message then 491 else 459) final ∧
+      final.pc = s.getReg .x1 &&& ~~~1#64 ∧
       final.getReg .x2 = s.getReg .x2 ∧
-      (∀ i : Reference.Chain, final.getByte (BitVec.ofNat 64 (0x80600 + i.val)) =
-        BitVec.ofNat 8 (Reference.digit message i).val) ∧
+      (∀ i : Reference.Chain,
+        final.getByte (BitVec.ofNat 64 (0x80600 + i.val)) =
+          BitVec.ofNat 8 (Reference.digit message i).val) ∧
       (∀ a, (∀ i : Fin 46, a ≠ BitVec.ofNat 64 (0x80600 + i.val)) →
         final.getByte a = (Keygen.enterState s).getByte a) := by
   have enter := Keygen.enter_block image base code.enter s pc (by rw [stack]; decide)
@@ -154,21 +160,32 @@ theorem encode_subroutine (image : Image) (base : Word) (code : EncodeCode image
   obtain ⟨digits, rounds, digitsPC, digitsPtr, digitsSum, digitsOut, digitsFrame, digitsSP⟩ :=
     encode_message_refines image (base + 48) code.loop message (encodeSetupState (Keygen.enterState s))
       setupPC low high rptr rcount rsum
-  have checksumPC : digits.pc = base + 88 := by simpa [BitVec.add_assoc] using digitsPC
-  have checksumBlock := checksumState_block image (base + 88) code.checksum digits checksumPC digitsPtr
-  have returnPC : (checksumState digits).pc = base + 124 := by
-    rw [checksumState_pc, checksumPC]; simp [BitVec.add_assoc]
-  have savedSP : (checksumState digits).getReg .x2 = 0xfffff0 := by
-    rw [checksumState_sp, digitsSP, encodeSetupState_sp, Keygen.enter_sp, stack]; rfl
-  have bodyFrame (a : Word) (outside : ∀ i : Fin 46, a ≠ BitVec.ofNat 64 (0x80600 + i.val)) :
-      (checksumState digits).getByte a = (Keygen.enterState s).getByte a := by
-    rw [checksumState_frame digits digitsPtr, digitsFrame, encodeSetupState_byte]
+  have patchPC : digits.pc = base + 88 := by simpa [BitVec.add_assoc] using digitsPC
+  obtain ⟨patchStart, forward, back, patchCode, forwardPC, backPC⟩ := code.patch
+  obtain ⟨post, patchSteps, postPC, postSum, postLow, postPtr, postRA, postSP,
+      postDigits, postFrame⟩ :=
+    patch_refines image (base+88) patchStart forward back patchCode digits message
+      patchPC forwardPC (by simpa [BitVec.add_assoc] using backPC) digitsSum digitsOut
+  have restPC : post.pc = base+92 := by simpa [BitVec.add_assoc] using postPC
+  have ptrPost : post.getReg .x10 = 0x8062b := postPtr.trans digitsPtr
+  have rest := checksumRest_block image (base+92) code.rest post restPC ptrPost
+  have returnPC : (checksumRestState post).pc = base+124 := by
+    rw [checksumRestState_pc, restPC]; simp [BitVec.add_assoc]
+  have savedSP : (checksumRestState post).getReg .x2 = 0xfffff0 := by
+    rw [checksumRestState_sp, postSP, digitsSP, encodeSetupState_sp,
+      Keygen.enter_sp, stack]; rfl
+  have bodyFrame (a : Word) (outside : ∀ i : Fin 46,
+      a ≠ BitVec.ofNat 64 (0x80600+i.val)) :
+      (checksumRestState post).getByte a = (Keygen.enterState s).getByte a := by
+    rw [checksumRestState_frame post ptrPost, postFrame, digitsFrame,
+      encodeSetupState_byte]
+    · intro i; exact outside ⟨i.val, by have := i.isLt; omega⟩
     · intro i; exact outside ⟨i.val, by have := i.isLt; omega⟩
     · intro i
-      have eq : 0x8062b + i.val = 0x80600 + (43 + i.val) := by omega
-      rw [eq]; exact outside ⟨43 + i.val, by have := i.isLt; omega⟩
-  have savedRA : (checksumState digits).getMem 0xfffff0 = s.getReg .x1 := by
-    have unchanged := word_eq_of_bytes (Keygen.enterState s) (checksumState digits) 0xfffff0
+      have eq : 0x8062b+i.val = 0x80600+(43+i.val) := by omega
+      rw [eq]; exact outside ⟨43+i.val, by have := i.isLt; omega⟩
+  have savedRA : (checksumRestState post).getMem 0xfffff0 = s.getReg .x1 := by
+    have unchanged := word_eq_of_bytes (Keygen.enterState s) (checksumRestState post) 0xfffff0
       (by decide) (by decide) (fun i => bodyFrame _ (by
         intro j eq
         have same := congrArg BitVec.toNat eq
@@ -179,29 +196,39 @@ theorem encode_subroutine (image : Image) (base : Word) (code : EncodeCode image
     calc
       _ = (Keygen.enterState s).getMem 0xfffff0 := unchanged
       _ = s.getReg .x1 := by rw [Keygen.enter_mem, stack, if_pos (by decide)]
-  have ret := Keygen.return_block image (base + 124) code.leave (checksumState digits) returnPC
+  have ret := Keygen.return_block image (base+124) code.leave (checksumRestState post) returnPC
     (by rw [savedSP]; decide)
-  refine ⟨Keygen.returnState (checksumState digits), ?_, ?_, ?_, ?_, ?_⟩
-  · exact Keygen.ordinary_trans image s _ _ 12 442
-      (Keygen.ordinary_trans image s _ _ 2 10 enter setup)
-      (Keygen.ordinary_trans image _ _ _ 430 12 rounds
-        (Keygen.ordinary_trans image _ _ _ 9 3 checksumBlock ret))
+  refine ⟨Keygen.returnState (checksumRestState post), ?_, ?_, ?_, ?_, ?_⟩
+  · have prefixSteps := Keygen.ordinary_trans image s _ _ 2 10 enter setup
+    by_cases flip : Reference.needsFlip message
+    · simp only [if_pos flip] at patchSteps ⊢
+      exact Keygen.ordinary_trans image s _ _ 12 479 prefixSteps
+        (Keygen.ordinary_trans image _ _ _ 430 49 rounds
+          (Keygen.ordinary_trans image _ _ _ 38 11 patchSteps
+            (Keygen.ordinary_trans image _ _ _ 8 3 rest ret)))
+    · simp only [if_neg flip] at patchSteps ⊢
+      exact Keygen.ordinary_trans image s _ _ 12 447 prefixSteps
+        (Keygen.ordinary_trans image _ _ _ 430 17 rounds
+          (Keygen.ordinary_trans image _ _ _ 6 11 patchSteps
+            (Keygen.ordinary_trans image _ _ _ 8 3 rest ret)))
   · rw [Keygen.return_pc, savedSP, savedRA]
   · rw [Keygen.return_sp, savedSP, stack]; rfl
   · intro i
-    have output := checksumState_refines digits message digitsPtr digitsSum digitsOut i
+    have output := checksumRestState_refines post message ptrPost postSum postLow postDigits i
     simpa only [MachineState.getByte, Keygen.return_mem] using output
   · intro a outside
     simpa only [MachineState.getByte, Keygen.return_mem] using bodyFrame a outside
 
 theorem sign_encode_code : EncodeCode sign 0x1340 := by
-  refine ⟨by decide, ?_, sign_encode_loop_code, sign_checksum_code, by decide⟩
+  refine ⟨by decide, ?_, sign_encode_loop_code, sign_encode_patch_code,
+    sign_checksum_rest_code, by decide⟩
   intro s i pc
   simp only [fetch, pc]
   fin_cases i <;> decide
 
 theorem verify_encode_code : EncodeCode verify 0x1268 := by
-  refine ⟨by decide, ?_, verify_encode_loop_code, verify_checksum_code, by decide⟩
+  refine ⟨by decide, ?_, verify_encode_loop_code, verify_encode_patch_code,
+    verify_checksum_rest_code, by decide⟩
   intro s i pc
   simp only [fetch, pc]
   fin_cases i <;> decide

@@ -81,7 +81,9 @@ theorem dispatch_to_tree (image : Image) (base : Word) (code : DispatchCode imag
     (stack : s.getReg .x2 = 0x1000000)
     (lo : s.getMem 0x80500 = message.extractLsb' 0 64)
     (hi : s.getMem 0x80508 = message.extractLsb' 64 64) :
-    ∃ final, OrdinarySteps image s (if s.getMem 0x80400 = 0 then 5 else 460) final ∧
+    ∃ final, OrdinarySteps image s
+      (if s.getMem 0x80400 = 0 then 5 else
+        if Reference.needsFlip message then 497 else 465) final ∧
       final.pc = base + 308 ∧ final.getReg .x1 = base + 24 ∧ final.getReg .x2 = s.getReg .x2 ∧
       (s.getMem 0x80400 ≠ 0 → ∀ i : Reference.Chain,
         final.getByte (BitVec.ofNat 64 (0x80600 + i.val)) = BitVec.ofNat 8 (Reference.digit message i).val) ∧
@@ -111,8 +113,15 @@ theorem dispatch_to_tree (image : Image) (base : Word) (code : DispatchCode imag
     have atTree : encoded.pc = base + 20 := by rw [bodyPC, returnAddress, aligned]
     have jump := jump_block image encoded 288 (by simpa only [fetch_at, atTree] using code.2.2.2.2.2)
     refine ⟨execInstrBr encoded (.JAL .x1 288), ?_, ?_, ?_, ?_, ?_, ?_⟩
-    · simpa only [if_neg bottom] using ordinary_trans image s _ _ 5 455
-        (ordinary_trans image s _ _ 4 1 pre call) (ordinary_trans image _ _ _ 454 1 body jump)
+    · by_cases flip : Reference.needsFlip message
+      · simp only [if_pos flip] at body
+        simpa only [if_neg bottom, if_pos flip] using ordinary_trans image s _ _ 5 492
+          (ordinary_trans image s _ _ 4 1 pre call)
+          (ordinary_trans image _ _ _ 491 1 body jump)
+      · simp only [if_neg flip] at body
+        simpa only [if_neg bottom, if_neg flip] using ordinary_trans image s _ _ 5 460
+          (ordinary_trans image s _ _ 4 1 pre call)
+          (ordinary_trans image _ _ _ 459 1 body jump)
     · simp [execInstrBr, signExtend21, atTree, BitVec.add_assoc]
     · simp [execInstrBr, atTree, MachineState.getReg_setReg_eq, BitVec.add_assoc]
     · simp [execInstrBr, MachineState.getReg_setReg_ne, bodySP, dispatchEncodeState_sp]
