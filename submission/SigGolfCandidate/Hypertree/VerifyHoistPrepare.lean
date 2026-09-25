@@ -21,26 +21,26 @@ theorem entry_block (image : Image) (code : EntryCode image)
   exact OrdinarySteps.refl _
 
 def FullCode (image : Image) : Prop :=
-  instructionAt image 0x1924 = some (.base (.SD .x28 .x30 0)) ∧
+  instructionAt image 0x1924 = some (.base (.SD .x28 .x30 1080)) ∧
   instructionAt image 0x1928 = some (.base (.ADDI .x31 .x0 7)) ∧
   instructionAt image 0x192c = some (.base (.JAL .x0 (-1024)))
 
 def fullState (s : MachineState) : MachineState :=
-  let s := execInstrBr s (.SD .x28 .x30 0)
+  let s := execInstrBr s (.SD .x28 .x30 1080)
   let s := execInstrBr s (.ADDI .x31 .x0 7)
   execInstrBr s (.JAL .x0 (-1024))
 
 theorem full_block (image : Image) (code : FullCode image)
     (s : MachineState) (pc : s.pc = 0x1924)
-    (stepPtr : s.getReg .x28 = 0x80438) :
+    (baseReg : s.getReg .x28 = 0x80000) :
     OrdinarySteps image s 3 (fullState s) := by
   obtain ⟨c0,c1,c2⟩ := code
-  let s1 := execInstrBr s (.SD .x28 .x30 0)
+  let s1 := execInstrBr s (.SD .x28 .x30 1080)
   let s2 := execInstrBr s1 (.ADDI .x31 .x0 7)
   let s3 := execInstrBr s2 (.JAL .x0 (-1024))
-  apply OrdinarySteps.step s s1 _ (.base (.SD .x28 .x30 0)) 2
+  apply OrdinarySteps.step s s1 _ (.base (.SD .x28 .x30 1080)) 2
   · simpa only [fetch_at,pc] using c0
-  · simp [s1,ordinaryStep,memoryArgumentsValid,execInstrBr,stepPtr,
+  · simp [s1,ordinaryStep,memoryArgumentsValid,execInstrBr,baseReg,
       accessValid,rangeValid,MEMORY_BYTES,signExtend12]
   apply OrdinarySteps.step s1 s2 _ (.base (.ADDI .x31 .x0 7)) 1
   · have hp : s1.pc = 0x1928 := by simp [s1,execInstrBr,pc]

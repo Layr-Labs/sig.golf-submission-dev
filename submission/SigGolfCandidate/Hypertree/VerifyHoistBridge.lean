@@ -31,10 +31,10 @@ theorem entry_sticky (s : MachineState) :
     (entryState s).getReg .x31 = s.getReg .x31 := by
   simp [entryState,execInstrBr,MachineState.getReg_setReg_ne]
 
-theorem full_mem (s : MachineState) (stepPtr : s.getReg .x28 = 0x80438) (a : Word) :
+theorem full_mem (s : MachineState) (baseReg : s.getReg .x28 = 0x80000) (a : Word) :
     (fullState s).getMem a =
       if a = 0x80438 then s.getReg .x30 else s.getMem a := by
-  simp [fullState, execInstrBr, stepPtr, signExtend12, Expansion.mem_setMem]
+  simp [fullState, execInstrBr, baseReg, signExtend12, Expansion.mem_setMem]
 
 theorem full_regs (s : MachineState) :
     (fullState s).getReg .x5 = s.getReg .x5 ∧
@@ -82,7 +82,7 @@ theorem header_jump_loop_data (s : MachineState) (level tree step : Nat)
 theorem full_header_word_carry (s : MachineState) (level tree leaf chain step : Nat)
     (value : Reference.Digest)
     (chainBound : chain < 46) (stepBound : step < 8)
-    (stepPtr : s.getReg .x28 = 0x80438)
+    (baseReg : s.getReg .x28 = 0x80000)
     (stepReg : s.getReg .x30 = BitVec.ofNat 64 step)
     (levelEq : s.getMem 0x80400 = BitVec.ofNat 64 level)
     (leafEq : s.getMem 0x80428 = BitVec.ofNat 64 leaf)
@@ -94,7 +94,7 @@ theorem full_header_word_carry (s : MachineState) (level tree leaf chain step : 
     HeaderWordCarry (VerifyChainHeaderDirect.state (fullState s)) level tree leaf := by
   let prepared := fullState s
   have keep (a : Word) (ne : a ≠ 0x80438) : prepared.getMem a = s.getMem a := by
-    rw [full_mem s stepPtr, if_neg ne]
+    rw [full_mem s baseReg, if_neg ne]
   have preparedLevel : prepared.getMem 0x80400 = BitVec.ofNat 64 level :=
     (keep _ (by decide)).trans levelEq
   have preparedLeaf : prepared.getMem 0x80428 = BitVec.ofNat 64 leaf :=
@@ -102,7 +102,7 @@ theorem full_header_word_carry (s : MachineState) (level tree leaf chain step : 
   have preparedChain : prepared.getMem 0x80430 = BitVec.ofNat 64 chain :=
     (keep _ (by decide)).trans chainEq
   have preparedStep : prepared.getMem 0x80438 = BitVec.ofNat 64 step := by
-    rw [full_mem s stepPtr, if_pos rfl, stepReg]
+    rw [full_mem s baseReg, if_pos rfl, stepReg]
   have preparedIndex : ∀ i : Fin 3, prepared.getMem (wordAddress 0x80408 i.val) =
       (BitVec.ofNat 192 tree).extractLsb' (64*i.val) 64 := by
     intro i
@@ -176,7 +176,7 @@ theorem partial_loop_data (s : MachineState) (level tree : Nat)
 theorem full_loop_data (s : MachineState) (level tree : Nat)
     (side : Bool) (chain : Reference.Chain) (step : Nat)
     (value : Reference.Digest)
-    (stepPtr : s.getReg .x28 = 0x80438)
+    (baseReg : s.getReg .x28 = 0x80000)
     (stepReg : s.getReg .x30 = BitVec.ofNat 64 step)
     (stepBound : step < 8)
     (levelEq : s.getMem 0x80400 = BitVec.ofNat 64 level)
@@ -192,12 +192,12 @@ theorem full_loop_data (s : MachineState) (level tree : Nat)
   let final := VerifyChainHeaderDirect.state prepared
   have keep (a : Word) (ne : a ≠ 0x80438) :
       prepared.getMem a = s.getMem a := by
-    rw [full_mem s stepPtr, if_neg ne]
+    rw [full_mem s baseReg, if_neg ne]
   have preparedLevel := (keep 0x80400 (by decide)).trans levelEq
   have preparedLeaf := (keep 0x80428 (by decide)).trans leafEq
   have preparedChain := (keep 0x80430 (by decide)).trans chainEq
   have preparedStep : prepared.getMem 0x80438 = BitVec.ofNat 64 step := by
-    rw [full_mem s stepPtr, if_pos rfl,stepReg]
+    rw [full_mem s baseReg, if_pos rfl,stepReg]
   have preparedIndex : ∀ i : Fin 3, prepared.getMem (wordAddress 0x80408 i.val) =
       (BitVec.ofNat 192 tree).extractLsb' (64*i.val) 64 := by
     intro i
@@ -212,7 +212,7 @@ theorem full_loop_data (s : MachineState) (level tree : Nat)
   obtain ⟨service,source,length,destination⟩ := VerifyChainHeaderDirect.regs prepared
   have carry := full_header_word_carry s level tree
     (Reference.sideNumber side) chain.val step value chain.isLt
-    stepBound stepPtr stepReg levelEq leafEq chainEq indexEq valueEq
+    stepBound baseReg stepReg levelEq leafEq chainEq indexEq valueEq
   rcases carry with ⟨_,_,_,_,_,canonicalIndex,_,_,seven⟩
   constructor
   · simpa [final,KeygenDomain.inputWord,wordAddress] using words (0 : Fin 6)
@@ -242,7 +242,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
     (pc : s.pc = 0x190c)
     (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val)
     (digitReg : s.getReg .x30 = BitVec.ofNat 64 digit.val)
-    (stepPtr : s.getReg .x28 = 0x80438)
+    (baseReg : s.getReg .x28 = 0x80000)
     (levelEq : s.getMem 0x80400 = BitVec.ofNat 64 level)
     (leafEq : s.getMem 0x80428 = BitVec.ofNat 64 (Reference.sideNumber side))
     (chainEq : s.getMem 0x80430 = BitVec.ofNat 64 chain.val)
@@ -266,7 +266,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
   obtain ⟨e6,e10,e28,e30,e1,e2⟩ := entry_regs s
   have enteredChain : entered.getReg .x6 = BitVec.ofNat 64 chain.val := e6.trans chainReg
   have enteredStep : entered.getReg .x30 = BitVec.ofNat 64 digit.val := e30.trans digitReg
-  have enteredPtr : entered.getReg .x28 = 0x80438 := e28.trans stepPtr
+  have enteredBase : entered.getReg .x28 = 0x80000 := e28.trans baseReg
   have enteredLevel : entered.getMem 0x80400 = BitVec.ofNat 64 level :=
     (entry_mem s _).trans levelEq
   have enteredLeaf : entered.getMem 0x80428 =
@@ -290,7 +290,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
       rfl
     let full := fullState entered
     have fullCode : FullCode verify := by unfold FullCode; decide
-    have fullRun := full_block verify fullCode entered atFull enteredPtr
+    have fullRun := full_block verify fullCode entered atFull enteredBase
     have fullPC := full_pc entered atFull
     let headed := VerifyChainHeaderDirect.state full
     have headerRun := VerifyChainHeaderDirect.block verify 0x152c
@@ -302,7 +302,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
     have jumpCode : HeaderJumpCode verify := by unfold HeaderJumpCode; decide
     have jumpRun := header_jump verify jumpCode headed headerPC
     have headedData := full_loop_data entered level tree side chain digit.val
-      value enteredPtr enteredStep digit.isLt enteredLevel enteredLeaf
+      value enteredBase enteredStep digit.isLt enteredLevel enteredLeaf
       enteredChainMem enteredIndex enteredValue
     have preparedData := header_jump_loop_data headed level tree digit.val
       side chain value headedData
@@ -323,7 +323,7 @@ theorem prepare_header (s : MachineState) (level tree : Nat)
         · simpa [wordAddress] using outside.2.1
         · simpa [wordAddress] using outside.2.2.1
         · simpa [wordAddress] using outside.2.2.2.1)]
-      rw [full_mem entered enteredPtr a,if_neg outside.2.2.2.2]
+      rw [full_mem entered enteredBase a,if_neg outside.2.2.2.2]
       exact entry_mem s a
   · have atPartial : entered.pc = 0x1910 := by
       rw [entry_pc s pc,chainReg]

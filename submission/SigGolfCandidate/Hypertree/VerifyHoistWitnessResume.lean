@@ -108,10 +108,10 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
     (value8 : s.getMem (chainSource s + 8) = value.extractLsb' 64 64)
     (digitEq : s.getByte (BitVec.ofNat 64 (0x80600 + chain.val)) =
       BitVec.ofNat 8 digit.val) :
-    ∃ ready, OrdinarySteps verify s 12 ready ∧ ready.pc = 0x190c ∧
+    ∃ ready, OrdinarySteps verify s 11 ready ∧ ready.pc = 0x190c ∧
       ready.getReg .x30 = BitVec.ofNat 64 digit.val ∧
       ready.getReg .x6 = BitVec.ofNat 64 chain.val ∧
-      ready.getReg .x28 = 0x80438 ∧
+      ready.getReg .x28 = 0x80000 ∧
       ready.getMem 0x80400 = BitVec.ofNat 64 level ∧
       ready.getMem 0x80428 = BitVec.ofNat 64 (Reference.sideNumber side) ∧
       ready.getMem 0x80430 = BitVec.ofNat 64 chain.val ∧
@@ -168,7 +168,7 @@ theorem witness_prepare_after_endpoint (s : MachineState) (level tree : Nat) (si
       copied.getReg .x2 = s.getReg .x2 := by
     rw [copiedEq]
     exact chainValueState_stack (liftStart s)
-  refine ⟨ready, ordinary_trans verify s copied ready 7 5
+  refine ⟨ready, ordinary_trans verify s copied ready 7 4
       (resumeValueState_block s pc baseReg counterReg valid0 valid8)
       (digit_block copied copiedPC copiedBase validDigit),
     ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
