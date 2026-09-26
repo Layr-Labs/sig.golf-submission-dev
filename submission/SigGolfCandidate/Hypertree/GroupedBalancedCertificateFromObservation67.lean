@@ -12,12 +12,12 @@ open SigGolfCandidate.Hypertree
 theorem certificate_of_observation
     (observation :
       GroupedBalancedVerifierRefinementFromObservation67.EntryObservation) :
-    SigGolf.Certificate GroupedBalancedProgram67ByteSign.submission 161485 := by
+    SigGolf.Certificate GroupedBalancedProgram67ByteSign.submission 156325 := by
   have refinement :=
     GroupedBalancedVerifierRefinementFromObservation67.verifier_refinement
       observation
   exact GroupedBalancedCertificateConditional67.certificate_of_verifierRefinement
-    161485
+    156325
     (GroupedBalancedHonestVerifierFromRefinement67.honestVerifier_of_refinement
       refinement)
     GroupedBalancedVerifierTermination67.verifier_terminates

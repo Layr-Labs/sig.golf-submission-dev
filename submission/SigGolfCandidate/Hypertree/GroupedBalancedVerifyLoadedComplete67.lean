@@ -51,7 +51,7 @@ theorem loaded_fold (hash : Hash)
         (13+blocksAt hash entry
           (GroupedBalancedVerifyTreeLoadedDecoderSafe67.currentIndex entry).toNat 44)
         mid ∧
-      cycles ≤ 3545*44 ∧ steps ≤ cycles ∧
+      cycles ≤ 150820 ∧ steps ≤ cycles ∧
       Low initial entry ∧
       (GroupedBalancedVerifyTreeLoadedDecoderSafe67.currentIndex entry).toNat =
         GroupedMixedIndex.bottomTree
@@ -79,15 +79,19 @@ theorem loaded_fold (hash : Hash)
       (GroupedBalancedVerifyTreeLoadedDecoderSafe67.currentIndex entry).toNat
       (GroupedBalancedVerifyTreeLoadedDecoderSafe67.currentIndex entry).isLt
       initialState 44 (by decide)
+  have cycleBound : cycles ≤ 150820 := by
+    have height : accumulatedHeight 44 = 146 := by decide
+    rw [height] at bound
+    omega
   refine ⟨initial,entry,mid,prefixSteps,steps,cycles,loaded,prefixBound,
-    ?_,bound,stepsBound,low,indexEq,rootEq,state⟩
+    ?_,cycleBound,stepsBound,low,indexEq,rootEq,state⟩
   simpa only [Nat.add_assoc] using prefixRun.trans run
 
 theorem loaded_complete (hash : Hash)
     (input : Input program.sizes .verify) :
     ∃ initial entry final steps cycles,
       initialState program .verify input = some initial ∧
-      steps ≤ 161393 ∧ cycles ≤ 161485 ∧
+      steps ≤ 161393 ∧ cycles ≤ 156325 ∧
       Executes hash image initial steps
         ⟨if rootAt hash entry
             (GroupedBalancedVerifyTreeLoadedDecoderSafe67.currentIndex entry).toNat
@@ -175,7 +179,7 @@ theorem loaded_complete (hash : Hash)
     have h : n ≤ c := by
       simpa only [n,c,message,root] using finalStepBound
     omega
-  have totalBound : prefixSteps+92+cycles+c ≤ 161485 := by omega
+  have totalBound : prefixSteps+92+cycles+c ≤ 156325 := by omega
   have calls45 : callsAt hash entry leaf0 45 =
       callsAt hash entry leaf0 44+
         GroupedBalancedChecksum67.suffixCost message+1+heightAt 44 := rfl

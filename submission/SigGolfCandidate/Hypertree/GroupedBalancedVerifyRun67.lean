@@ -14,7 +14,7 @@ theorem run_observation (hash : Hash)
     (input : Input program.sizes .verify) :
     ∃ initial entry cycles,
       initialState program .verify input = some initial ∧
-      cycles ≤ 161485 ∧
+      cycles ≤ 156325 ∧
       (program.runWith hash .verify input).finished = true ∧
       (program.runWith hash .verify input).cycles = cycles ∧
       (program.runWith hash .verify input).value.isSome =

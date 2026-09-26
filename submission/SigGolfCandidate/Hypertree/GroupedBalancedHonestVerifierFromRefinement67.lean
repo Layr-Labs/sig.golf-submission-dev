@@ -34,8 +34,8 @@ private theorem result_success (result : RunResult Unit) (cycles : Nat)
 private theorem exact_result (result : RunResult Unit)
     (accepted : result.value.isSome = true)
     (finished : result.finished = true)
-    (cycleBound : result.cycles ≤ 161485) :
-    ∃ cycles calls blocks : Nat, cycles ≤ 161485 ∧
+    (cycleBound : result.cycles ≤ 156325) :
+    ∃ cycles calls blocks : Nat, cycles ≤ 156325 ∧
       result =
         ⟨some (),true,cycles,calls,blocks⟩ := by
   refine ⟨result.cycles,result.hashCalls,result.hashCompressions,
@@ -71,7 +71,7 @@ private theorem accepted_of_refinement
 
 theorem honestVerifier_of_refinement
     (refinement : GroupedBalancedSecurityCheckConditional67.VerifierRefinement) :
-    GroupedBalancedHonestConditional67.HonestVerifier 161485 := by
+    GroupedBalancedHonestConditional67.HonestVerifier 156325 := by
   intro hash secretKey message
   let pk := GroupedBalancedScheme67.keygen hash secretKey
   let wire := GroupedBalancedWire67.wire

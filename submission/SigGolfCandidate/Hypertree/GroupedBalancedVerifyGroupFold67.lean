@@ -148,7 +148,7 @@ theorem step (hash : Hash) (wire s : MachineState) (leaf0 g : Nat)
       GroupState hash wire leaf0 (g+1) next ∧
       1+GroupedBalancedVerifyNonfinalGroup67.decoderCost message+
         (11*GroupedBalancedChecksum67.suffixCost message+1281+
-          cycles+tailSteps) ≤ 3545 := by
+          cycles+tailSteps) ≤ 2857+172*heightAt g := by
   obtain ⟨pc,stack,tables,low,ptr,group,height,base,index,root⟩ := state
   obtain ⟨next,steps,cycles,tailSteps,tailBound,run,nextPc,
     nextPtr,nextGroup,nextHeight,nextBase,nextIndex,nextLow,
@@ -191,8 +191,6 @@ theorem step (hash : Hash) (wire s : MachineState) (leaf0 g : Nat)
     by_cases eq : g = 29
     · simpa [eq] using nextHeight
     · simpa [eq] using nextHeight
-  have heightMax : heightAt g ≤ 4 := by
-    rcases height_choice g with h | h <;> omega
   refine ⟨next,steps,cycles,tailSteps,tailBound,?_,?_,?_⟩
   · simpa only [root] using run
   · refine ⟨nextPc,nextStack,nextTables,low.trans nextLow,?_,
@@ -212,7 +210,7 @@ theorem fold (hash : Hash) (wire : MachineState) (leaf0 : Nat)
       Trace hash image wire steps cycles
         (callsAt hash wire leaf0 g) (blocksAt hash wire leaf0 g)
         state ∧
-      cycles ≤ 3545*g ∧ steps ≤ cycles ∧
+      cycles ≤ 2857*g+172*accumulatedHeight g ∧ steps ≤ cycles ∧
       GroupState hash wire leaf0 g state := by
   induction g with
   | zero =>
@@ -243,6 +241,7 @@ theorem fold (hash : Hash) (wire : MachineState) (leaf0 : Nat)
     refine ⟨next,priorSteps+n,priorCycles+c,fullRun,?_,
       fuelBound,nextState⟩
     dsimp [c,message] at groupBound ⊢
+    rw [accumulated_step g small]
     omega
 
 end SigGolfCandidate.Hypertree.GroupedBalancedVerifyGroupFold67

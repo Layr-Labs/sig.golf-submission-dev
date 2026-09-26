@@ -12,7 +12,7 @@ private abbrev submission := GroupedBalancedProgram67ByteSign.submission
 
 theorem finish_cycles (hash : Hash)
     (input : Input submission.sizes .verify) :
-    ∃ cycles : Nat, cycles ≤ 161485 ∧
+    ∃ cycles : Nat, cycles ≤ 156325 ∧
       (submission.runWith hash .verify input).finished = true ∧
       (submission.runWith hash .verify input).cycles = cycles :=
   (GroupedBalancedVerifyRun67.run_observation hash input).elim
@@ -27,7 +27,7 @@ theorem finished (hash : Hash)
 
 theorem cycles_le (hash : Hash)
     (input : Input submission.sizes .verify) :
-    (submission.runWith hash .verify input).cycles ≤ 161485 :=
+    (submission.runWith hash .verify input).cycles ≤ 156325 :=
   (finish_cycles hash input).elim fun cycles h => by
     rw [h.2.2]
     exact h.1
