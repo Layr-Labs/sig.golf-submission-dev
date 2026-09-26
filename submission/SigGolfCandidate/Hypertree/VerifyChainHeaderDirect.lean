@@ -50,8 +50,8 @@ def Code (image : Image) (p : Word) : Prop :=
   instructionAt image (p + 148) = some (.base (.ADDI .x28 .x28 1048)) ∧
   instructionAt image (p + 152) = some (.base (.LD .x11 .x28 0)) ∧
   instructionAt image (p + 156) = some (.base (.LUI .x28 128)) ∧
-  instructionAt image (p + 160) = some (.base (.SD .x28 .x11 24)) ∧
-  instructionAt image (p + 164) = some (.base (.ADDI .x20 .x0 46)) ∧
+  instructionAt image (p + 160) = some (.base (.ADDI .x28 .x28 24)) ∧
+  instructionAt image (p + 164) = some (.base (.SD .x28 .x11 0)) ∧
   instructionAt image (p + 168) = some (.base (.LUI .x10 128)) ∧
   instructionAt image (p + 172) = some (.base (.ADDI .x10 .x10 0)) ∧
   instructionAt image (p + 176) = some (.base (.ADDI .x11 .x0 384)) ∧
@@ -103,8 +103,8 @@ def state (s : MachineState) : MachineState :=
   let s := execInstrBr s (.ADDI .x28 .x28 1048)
   let s := execInstrBr s (.LD .x11 .x28 0)
   let s := execInstrBr s (.LUI .x28 128)
-  let s := execInstrBr s (.SD .x28 .x11 24)
-  let s := execInstrBr s (.ADDI .x20 .x0 46)
+  let s := execInstrBr s (.ADDI .x28 .x28 24)
+  let s := execInstrBr s (.SD .x28 .x11 0)
   let s := execInstrBr s (.LUI .x10 128)
   let s := execInstrBr s (.ADDI .x10 .x10 0)
   let s := execInstrBr s (.ADDI .x11 .x0 384)
@@ -155,8 +155,8 @@ theorem block (image : Image) (p : Word) (code : Code image p)
   let s38 := execInstrBr s37 (.ADDI .x28 .x28 1048)
   let s39 := execInstrBr s38 (.LD .x11 .x28 0)
   let s40 := execInstrBr s39 (.LUI .x28 128)
-  let s41 := execInstrBr s40 (.SD .x28 .x11 24)
-  let s42 := execInstrBr s41 (.ADDI .x20 .x0 46)
+  let s41 := execInstrBr s40 (.ADDI .x28 .x28 24)
+  let s42 := execInstrBr s41 (.SD .x28 .x11 0)
   let s43 := execInstrBr s42 (.LUI .x10 128)
   let s44 := execInstrBr s43 (.ADDI .x10 .x10 0)
   let s45 := execInstrBr s44 (.ADDI .x11 .x0 384)
@@ -333,15 +333,15 @@ theorem block (image : Image) (p : Word) (code : Code image p)
   · have hp : s39.pc = p + 156 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34, s35, s36, s37, s38, s39, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c39
   · rfl
-  apply OrdinarySteps.step s40 s41 _ (.base (.SD .x28 .x11 24)) 7
+  apply OrdinarySteps.step s40 s41 _ (.base (.ADDI .x28 .x28 24)) 7
   · have hp : s40.pc = p + 160 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c40
-  · simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, s41, ordinaryStep, memoryArgumentsValid, execInstrBr, signExtend12,
-      accessValid, rangeValid, MEMORY_BYTES, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
-  apply OrdinarySteps.step s41 s42 _ (.base (.ADDI .x20 .x0 46)) 6
+  · rfl
+  apply OrdinarySteps.step s41 s42 _ (.base (.SD .x28 .x11 0)) 6
   · have hp : s41.pc = p + 164 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, s41, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c41
-  · rfl
+  · simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, s41, s42, ordinaryStep, memoryArgumentsValid, execInstrBr, signExtend12,
+      accessValid, rangeValid, MEMORY_BYTES, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne]
   apply OrdinarySteps.step s42 s43 _ (.base (.LUI .x10 128)) 5
   · have hp : s42.pc = p + 168 := by simp [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, s41, s42, execInstrBr, pc, BitVec.add_assoc]
     simpa only [fetch_at, hp] using c42
@@ -374,14 +374,6 @@ theorem pc (s : MachineState) : (state s).pc = s.pc + 192 := by
 theorem regs (s : MachineState) :
     (state s).getReg .x5 = 1 ∧ (state s).getReg .x10 = 0x80000 ∧
     (state s).getReg .x11 = 384 ∧ (state s).getReg .x12 = 0x80020 := by
-  simp [state,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
-
-theorem base_reg (s : MachineState) :
-    (state s).getReg .x28 = 0x80000 := by
-  simp [state,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
-
-theorem limit_reg (s : MachineState) :
-    (state s).getReg .x20 = 46 := by
   simp [state,execInstrBr,signExtend12,MachineState.getReg_setReg_eq,MachineState.getReg_setReg_ne]
 
 theorem chain_reg (s : MachineState) :
