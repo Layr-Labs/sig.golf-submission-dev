@@ -6,6 +6,12 @@ bottom tree and 52 three-bit upper trees. This file does not alter the active
 submission. Every upper tree has eight WOTS leaves, one selected fragment,
 and three 16-byte authentication siblings. Its base-four WOTS uses 64 message
 digits and four checksum digits.
+
+The bottom tree in this prototype has no high-index tree address. Functional
+correctness alone does not establish the required unforgeability: after bottom
+seeds are exposed, an upper-index match can reuse a signed upper path. The
+tree-addressed bottom construction in `GroupedHeightThreeUniform` fixes this
+issue for the radix-six prototype.
 -/
 
 namespace SigGolfCandidate.Hypertree.GroupedHeightThree

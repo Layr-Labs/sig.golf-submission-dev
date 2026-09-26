@@ -25,10 +25,8 @@ structure LoopData (s : MachineState) (level tree : Nat) (side : Bool)
   dstEq : s.getReg .x12 = 0x80020
   serviceEq : s.getReg .x5 = 1
   chainReg : s.getReg .x6 = BitVec.ofNat 64 chain.val
-  baseReg : s.getReg .x28 = 0x80000
   stepReg : s.getReg .x30 = BitVec.ofNat 64 step
   sevenReg : s.getReg .x31 = 7
-  limitReg : s.getReg .x20 = 46
 
 def tickState (hash : Hash) (s : MachineState) : MachineState :=
   let s := writeHash s (hash (hashInput s))
@@ -200,10 +198,8 @@ theorem tick_data (hash : Hash) (s : MachineState) (level tree step : Nat)
   · exact (tick_regs hash s .x12 (by decide)).trans data.dstEq
   · exact (tick_regs hash s .x5 (by decide)).trans data.serviceEq
   · exact (tick_regs hash s .x6 (by decide)).trans data.chainReg
-  · exact (tick_regs hash s .x28 (by decide)).trans data.baseReg
   · rw [tick_step_reg,data.stepReg]
     exact (BitVec.ofNat_add step 1).symm
   · exact (tick_regs hash s .x31 (by decide)).trans data.sevenReg
-  · exact (tick_regs hash s .x20 (by decide)).trans data.limitReg
 
 end SigGolfCandidate.Hypertree.Verifying.Hoist

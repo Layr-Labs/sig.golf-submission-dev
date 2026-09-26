@@ -1,7 +1,140 @@
-import SigGolfCandidate.Hypertree.KeygenLeafCall
+import SigGolfCandidate.Hypertree.KeygenLeafLoop
+import SigGolfCandidate.Hypertree.KeygenLeafEntry
 import SigGolfCandidate.Hypertree.KeygenTreeControl
 import SigGolfCandidate.Hypertree.KeygenNodeExecution
 import SigGolfCandidate.Hypertree.SignCapture
+
+/-! Inlined from SigGolfCandidate.Hypertree.KeygenLeafPrologue; its only importer was SigGolfCandidate.Hypertree.KeygenTreeHelpers. -/
+section
+namespace SigGolfCandidate.Hypertree.KeygenLeafPrologue
+open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 OracleComp Keygen KeygenSecretStart
+set_option maxRecDepth 4096
+
+def ready (s : MachineState) := KeygenLeafEntry.state (enterState s) 1116
+
+theorem frame (s : MachineState) (sp : s.getReg .x2=0xfffff0)
+    (a : Word) (hs : a≠0xffffe0) (hc : a≠0x80430) (ht : a≠0x80438) :
+    (ready s).getMem a=s.getMem a  := by
+  unfold ready
+  rw [KeygenLeafEntry.mem,if_neg ht,if_neg hc,enter_mem,sp]
+  exact if_neg hs
+
+
+theorem stack (s : MachineState) (sp : s.getReg .x2=0xfffff0) :
+    (ready s).getReg .x2=0xffffe0  := by
+  unfold ready
+  rw [(KeygenLeafEntry.stack _ _).2,enter_sp,sp]; rfl
+
+
+theorem saved (s : MachineState) (sp : s.getReg .x2=0xfffff0) :
+    (ready s).getMem 0xffffe0=s.getReg .x1  := by
+  unfold ready
+  rw [KeygenLeafEntry.mem,if_neg (by decide),if_neg (by decide),enter_mem,sp,if_pos (by decide)]
+
+
+theorem pc (s : MachineState) (pc : s.pc=0x11cc) (sp : s.getReg .x2=0xfffff0)
+    (level : Nat) (nonzero : BitVec.ofNat 64 level ≠ 0) (hl : s.getMem 0x80400=BitVec.ofNat 64 level) :
+    (ready s).pc=0x1204 := by
+  have levelEq : (enterState s).getMem 0x80400=BitVec.ofNat 64 level := by
+    rw [enter_mem,sp,if_neg (by decide)]
+    exact hl
+  unfold ready
+  rw [KeygenLeafEntry.pc,levelEq,if_neg nonzero,enter_pc,pc]; rfl
+
+
+theorem context (s : MachineState) (sp : s.getReg .x2=0xfffff0)
+    (level tree : Nat) (side : Bool) (secretKey : SecretKey) (context : Context level tree side secretKey s) :
+    Context level tree side secretKey (ready s) := by
+  constructor
+  · rw [frame _ sp _ (by decide) (by decide) (by decide)]; exact context.levelWord
+  · rw [frame _ sp _ (by decide) (by decide) (by decide)]; exact context.leafWord
+  · intro i
+    rw [frame _ sp _ (by fin_cases i <;> decide) (by fin_cases i <;> decide) (by fin_cases i <;> decide)]
+    exact context.indexWords i
+  · intro i
+    rw [frame _ sp _ (by fin_cases i <;> decide) (by fin_cases i <;> decide) (by fin_cases i <;> decide)]
+    exact context.secretKeyWords i
+  · rw [frame _ sp _ (by decide) (by decide) (by decide)]; exact context.modeWord
+
+theorem counter (s : MachineState) : (ready s).getMem 0x80430=0 := by
+  unfold ready
+  rw [KeygenLeafEntry.mem,if_neg (by decide),if_pos rfl]
+
+theorem block (s : MachineState) (pc : s.pc=0x11cc) (sp : s.getReg .x2=0xfffff0) :
+    OrdinarySteps keygen s 14 (ready s) := by
+  have entered := enter_block keygen 0x11cc keygen_leaf_enter s pc (by rw [sp]; decide)
+  have epc : (enterState s).pc=0x11d4 := by rw [enter_pc,pc]; rfl
+  have entry := KeygenLeafEntry.block keygen 0x11d4 1116 KeygenLeafEntry.keygen_code (enterState s) epc
+  exact ordinary_trans keygen _ _ _ 2 12 entered entry
+
+theorem prepare (s : MachineState) (atPC : s.pc=0x11cc) (sp : s.getReg .x2=0xfffff0)
+    (level tree : Nat) (side : Bool) (secretKey : SecretKey)
+    (nonzero : BitVec.ofNat 64 level ≠ 0) (ctx : Context level tree side secretKey s) :
+    ∃ final, OrdinarySteps keygen s 14 final ∧ final.pc=0x1204 ∧
+      Context level tree side secretKey final ∧ final.getMem 0x80430=0 ∧
+      final.getReg .x2=0xffffe0 ∧ final.getMem 0xffffe0=s.getReg .x1 ∧
+      (∀ a, a≠0xffffe0 → a≠0x80430 → a≠0x80438 → final.getMem a=s.getMem a) := by
+  exact ⟨ready s,block s atPC sp,pc s atPC sp level nonzero ctx.levelWord,
+    context s sp level tree side secretKey ctx,counter s,stack s sp,saved s sp,frame s sp⟩
+
+end SigGolfCandidate.Hypertree.KeygenLeafPrologue
+end
+
+namespace SigGolfCandidate.Hypertree.KeygenLeafCall
+open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 OracleComp Keygen KeygenSecretStart
+set_option maxRecDepth 4096
+
+def Outside (side : Bool) (a : Word) : Prop :=
+  a ≠ 0xffffe0 ∧ KeygenLeafLoop.Outside a ∧
+    (∀ i : Fin 96, a ≠ Signing.wordAddress 0x80000 i.val) ∧
+    ∀ i : Fin 2, a ≠ KeygenSavePublic.wordAddress side i.val
+
+instance (side : Bool) (a : Word) : Decidable (Outside side a) :=
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _))
+
+/-- A complete upper-leaf call, with the exact generated keygen entry and return. -/
+theorem execute (hash : Hash) (s : MachineState) (pc : s.pc=0x11cc)
+    (sp : s.getReg .x2=0xfffff0) (level tree : Nat) (side : Bool) (secretKey : SecretKey)
+    (nonzero : BitVec.ofNat 64 level ≠ 0) (context : Context level tree side secretKey s) :
+    ∃ final, Trace hash keygen s 38487 41158 369 380 final ∧
+      final.pc=s.getReg .x1 &&& ~~~1#64 ∧ final.getReg .x2=s.getReg .x2 ∧
+      (∀ i : Fin 2, final.getMem (KeygenSavePublic.wordAddress side i.val) =
+        (Reference.leafRoot hash secretKey level tree side).extractLsb' (64*i.val) 64) ∧
+      (∀ a, Outside side a → final.getMem a=s.getMem a) := by
+  obtain ⟨ready,pre,rpc,rcontext,rchain,rsp,saved,entryFrame⟩ :=
+    KeygenLeafPrologue.prepare s pc sp level tree side secretKey nonzero context
+  obtain ⟨ended,rounds,endPC,endContext,endCounter,endpoints,endRA,endSP,endFrame⟩ :=
+    KeygenLeafLoop.loop hash 46 ready 0 level tree side secretKey (by decide) rpc rcontext rchain
+      (by intro chain lt; omega)
+  have esp : ended.getReg .x2=0xffffe0 := endSP.trans rsp
+  have esaved : ended.getMem 0xffffe0=s.getReg .x1 := by
+    rw [endFrame _ (by decide),saved]
+  obtain ⟨final,tail,fpc,fsp,words,frame⟩ :=
+    KeygenLeaf.compute_return keygen hash 0x1548 KeygenLeaf.keygen_code keygen_leaf_return ended endPC
+      level tree side (Reference.endpoint hash secretKey level tree side)
+      endContext.levelWord endContext.leafWord endContext.indexWords
+      (KeygenLeafLoop.endpoint_words hash secretKey level tree side ended endpoints)
+      (by rw [esp]; decide)
+      (by rw [esp]; decide)
+      (by rw [esp]; decide)
+      (by rw [esp]; cases side <;> decide)
+  refine ⟨final,pre.trace.trans (rounds.trans tail),?_,?_,?_,?_⟩
+  · rw [fpc,esp,esaved]
+  · rw [fsp,esp,sp]; rfl
+  · intro i
+    have nz : level≠0 := by intro eq; apply nonzero; rw [eq]; rfl
+    simpa only [Reference.leafRoot,if_neg nz] using words i
+  · intro a outside
+    obtain ⟨hs,loopOutside,inputOutside,publicOutside⟩ := outside
+    rw [frame a inputOutside loopOutside.2.1.2.2.1 publicOutside,endFrame a loopOutside,
+      entryFrame a hs loopOutside.1 loopOutside.2.1.1]
+
+/-- info: 'SigGolfCandidate.Hypertree.KeygenLeafCall.execute' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms execute
+
+end SigGolfCandidate.Hypertree.KeygenLeafCall
+
 
 namespace SigGolfCandidate.Hypertree.KeygenTree
 open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 OracleComp Keygen KeygenSecretStart
