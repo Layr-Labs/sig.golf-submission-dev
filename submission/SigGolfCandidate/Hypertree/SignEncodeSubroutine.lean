@@ -1,6 +1,188 @@
+import SigGolfCandidate.Hypertree.BalancedPatchRefinesCore
+import SigGolfCandidate.Hypertree.BalancedPatchRest
 import SigGolfCandidate.Hypertree.SignEncodeFinish
-import SigGolfCandidate.Hypertree.BalancedEncodeCode
-import SigGolfCandidate.Hypertree.BalancedPatchRefines
+
+
+namespace SigGolfCandidate.Hypertree.Signing
+open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 Keygen Expansion
+set_option maxRecDepth 4096
+
+theorem flip_checksum_nat (message : Reference.Digest)
+    (flip : Reference.needsFlip message) :
+    301 - (301 - Reference.rawSum message) = Reference.checksum message := by
+  rw [Reference.checksum_of_flip message flip]
+  have h := Balanced.raw_sum_le message
+  omega
+
+theorem patch_refines_flip (image : Image) (entry start : Word) (forward back : BitVec 21)
+    (code : PatchCode image entry start forward back)
+    (s : MachineState) (message : Reference.Digest)
+    (pc : s.pc = entry)
+    (forwardPC : entry + signExtend21 forward = start)
+    (backPC : start+144+signExtend21 back = entry+4)
+    (sum : s.getReg .x12 = BitVec.ofNat 64 (301 - Reference.rawSum message))
+    (rawDigits : ∀ i : Fin 43,
+      s.getByte (BitVec.ofNat 64 (0x80600+i.val)) =
+        BitVec.ofNat 8 (Reference.messageDigit message i))
+    (flip : Reference.needsFlip message) :
+    ∃ final,
+      OrdinarySteps image s 38 final ∧
+      final.pc = entry+4 ∧
+      final.getReg .x12 = BitVec.ofNat 64 (Reference.checksum message) ∧
+      final.getReg .x13 = final.getReg .x12 &&& 7 ∧
+      final.getReg .x10 = s.getReg .x10 ∧
+      final.getReg .x1 = s.getReg .x1 ∧
+      final.getReg .x2 = s.getReg .x2 ∧
+      (∀ i : Fin 43,
+        final.getByte (BitVec.ofNat 64 (0x80600+i.val)) =
+          BitVec.ofNat 8 (Reference.payloadDigit message i)) ∧
+      (∀ a, (∀ i : Fin 43, a ≠ BitVec.ofNat 64 (0x80600+i.val)) →
+        final.getByte a = s.getByte a) := by
+  have hc : ¬ 301 - Reference.rawSum message < 151 := by
+    have h := (Reference.needsFlip_iff_rawChecksum_gt_150 message).mp flip
+    omega
+  obtain ⟨steps,pcFinal,sumFinal⟩ :=
+    flip_block image entry start forward back code s pc forwardPC backPC
+      (301 - Reference.rawSum message) (Nat.sub_le _ _) sum hc
+  have checksum : (flipResult s forward back).getReg .x12 =
+      BitVec.ofNat 64 (Reference.checksum message) :=
+    sumFinal.trans (congrArg (BitVec.ofNat 64) (flip_checksum_nat message flip))
+  have low := flipResult_low s forward back
+  have x10 := flipResult_x10 s forward back
+  have ra := flipResult_ra s forward back
+  have sp := flipResult_sp s forward back
+  have payload : ∀ i : Fin 43,
+      (flipResult s forward back).getByte (BitVec.ofNat 64 (0x80600+i.val)) =
+        BitVec.ofNat 8 (Reference.payloadDigit message i) := by
+    intro i
+    exact flipResult_byte s forward back message rawDigits flip i
+  have frame : ∀ a, (∀ i : Fin 43, a ≠ BitVec.ofNat 64 (0x80600+i.val)) →
+      (flipResult s forward back).getByte a = s.getByte a := by
+    intro a outside
+    exact flipResult_frame s forward back a outside
+  exact ⟨flipResult s forward back, steps, pcFinal, checksum, low, x10, ra, sp, payload, frame⟩
+
+#print axioms patch_refines_flip
+end SigGolfCandidate.Hypertree.Signing
+
+
+
+namespace SigGolfCandidate.Hypertree.Signing
+open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 Keygen Expansion
+set_option maxRecDepth 4096
+
+theorem patch_no_flip_refines (image : Image) (entry start : Word)
+    (forward back : BitVec 21)
+    (code : PatchCode image entry start forward back)
+    (s : MachineState) (message : Reference.Digest)
+    (pc : s.pc = entry)
+    (forwardPC : entry + signExtend21 forward = start)
+    (backPC : start+144+signExtend21 back = entry+4)
+    (sum : s.getReg .x12 = BitVec.ofNat 64 (301 - Reference.rawSum message))
+    (rawDigits : ∀ i : Fin 43,
+      s.getByte (BitVec.ofNat 64 (0x80600+i.val)) =
+        BitVec.ofNat 8 (Reference.messageDigit message i))
+    (noFlip : ¬Reference.needsFlip message) :
+    OrdinarySteps image s 6 (noFlipResult s forward back) ∧
+    (noFlipResult s forward back).pc = entry+4 ∧
+    (noFlipResult s forward back).getReg .x12 =
+      BitVec.ofNat 64 (Reference.checksum message) ∧
+    (noFlipResult s forward back).getReg .x13 =
+      (noFlipResult s forward back).getReg .x12 &&& 7 ∧
+    (noFlipResult s forward back).getReg .x10 = s.getReg .x10 ∧
+    (noFlipResult s forward back).getReg .x1 = s.getReg .x1 ∧
+    (noFlipResult s forward back).getReg .x2 = s.getReg .x2 ∧
+    (∀ i : Fin 43,
+      (noFlipResult s forward back).getByte (BitVec.ofNat 64 (0x80600+i.val)) =
+        BitVec.ofNat 8 (Reference.payloadDigit message i)) ∧
+    (∀ a, (∀ i : Fin 43, a ≠ BitVec.ofNat 64 (0x80600+i.val)) →
+      (noFlipResult s forward back).getByte a = s.getByte a) := by
+  have hc : 301 - Reference.rawSum message < 151 := by
+    have h := Reference.needsFlip_iff_rawChecksum_gt_150 message
+    have nh : ¬150 < 301 - Reference.rawSum message := fun x => noFlip (h.mpr x)
+    omega
+  obtain ⟨steps,pcFinal,sumFinal,lowFinal,frame,ptr,ra,sp⟩ :=
+    noFlip_block image entry start forward back code s pc forwardPC backPC
+      (301 - Reference.rawSum message) (Nat.sub_le _ _) sum hc
+  refine ⟨steps,pcFinal,?_,?_,ptr,ra,sp,?_,?_⟩
+  · simpa only [Reference.checksum_of_no_flip message noFlip] using sumFinal
+  · rw [lowFinal,sumFinal]
+  · intro i
+    rw [frame]
+    exact rawDigits_payload_no_flip s message rawDigits noFlip i
+  · intro a _; exact frame a
+
+end SigGolfCandidate.Hypertree.Signing
+
+
+
+namespace SigGolfCandidate.Hypertree.Signing
+open SigGolf SigGolf.Riscv RiscvZkvm.Rv64 Keygen Expansion
+set_option maxRecDepth 4096
+
+theorem patch_refines (image : Image) (entry start : Word) (forward back : BitVec 21)
+    (code : PatchCode image entry start forward back)
+    (s : MachineState) (message : Reference.Digest)
+    (pc : s.pc = entry)
+    (forwardPC : entry + signExtend21 forward = start)
+    (backPC : start+144+signExtend21 back = entry+4)
+    (sum : s.getReg .x12 = BitVec.ofNat 64 (301 - Reference.rawSum message))
+    (rawDigits : ∀ i : Fin 43,
+      s.getByte (BitVec.ofNat 64 (0x80600+i.val)) =
+        BitVec.ofNat 8 (Reference.messageDigit message i)) :
+    ∃ final,
+      OrdinarySteps image s (if Reference.needsFlip message then 38 else 6) final ∧
+      final.pc = entry+4 ∧
+      final.getReg .x12 = BitVec.ofNat 64 (Reference.checksum message) ∧
+      final.getReg .x13 = final.getReg .x12 &&& 7 ∧
+      final.getReg .x10 = s.getReg .x10 ∧
+      final.getReg .x1 = s.getReg .x1 ∧
+      final.getReg .x2 = s.getReg .x2 ∧
+      (∀ i : Fin 43,
+        final.getByte (BitVec.ofNat 64 (0x80600+i.val)) =
+          BitVec.ofNat 8 (Reference.payloadDigit message i)) ∧
+      (∀ a, (∀ i : Fin 43, a ≠ BitVec.ofNat 64 (0x80600+i.val)) →
+        final.getByte a = s.getByte a) := by
+  by_cases flip : Reference.needsFlip message
+  · obtain ⟨final, fields⟩ := patch_refines_flip image entry start forward back
+      code s message pc forwardPC backPC sum rawDigits flip
+    exact ⟨final, by simpa only [if_pos flip] using fields⟩
+  · have fields := patch_no_flip_refines image entry start forward back
+      code s message pc forwardPC backPC sum rawDigits flip
+    exact ⟨noFlipResult s forward back, by simpa only [if_neg flip] using fields⟩
+
+end SigGolfCandidate.Hypertree.Signing
+
+
+
+namespace SigGolfCandidate.Hypertree.Signing
+open SigGolf SigGolf.Riscv RiscvZkvm.Rv64
+set_option maxRecDepth 4096
+
+def EncodePatchCode (image : Image) (base : Word) : Prop :=
+  ∃ (start : Word) (forward back : BitVec 21),
+    PatchCode image (base+88) start forward back ∧
+    base+88+signExtend21 forward = start ∧
+    start+144+signExtend21 back = base+92
+
+theorem sign_encode_patch_code : EncodePatchCode sign 0x1340 := by
+  refine ⟨0x1c70, 0x8d8, -2404, sign_patch_code, ?_, ?_⟩ <;> decide
+
+theorem verify_encode_patch_code : EncodePatchCode verify 0x1268 := by
+  refine ⟨0x1948, 0x688, -1812, verify_patch_code, ?_, ?_⟩ <;> decide
+
+theorem sign_checksum_rest_code : ChecksumRestCode sign 0x139c := by
+  intro s i pc
+  simp only [fetch,pc]
+  fin_cases i <;> decide
+
+theorem verify_checksum_rest_code : ChecksumRestCode verify 0x12c4 := by
+  intro s i pc
+  simp only [fetch,pc]
+  fin_cases i <;> decide
+
+end SigGolfCandidate.Hypertree.Signing
+
 
 namespace SigGolfCandidate.Hypertree.Signing
 open SigGolf SigGolf.Riscv RiscvZkvm.Rv64

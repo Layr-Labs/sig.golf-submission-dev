@@ -31,7 +31,7 @@ private theorem mask_four (i : Nat) (hi : i < 64) :
       have hp : 40 ≤ i := by omega
       simp [hlow, hp, BitVec.getLsbD_allOnes, hout]
 
-private theorem replace32 (lo : BitVec 32) (old new : BitVec 8) :
+theorem replace32 (lo : BitVec 32) (old new : BitVec 8) :
     replaceByte (lo.zeroExtend 64 + ((old.zeroExtend 64) <<< 32)) 4 new =
       lo.zeroExtend 64 + ((new.zeroExtend 64) <<< 32) := by
   rw [BitVec.add_eq_or_of_and_eq_zero _ _ (low_shift_disjoint lo old),
@@ -57,7 +57,7 @@ private theorem byte64 (b : BitVec 8) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.zeroExtend_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ofNat]
 
-private theorem prefix32 (l f c : BitVec 8) :
+theorem prefix32 (l f c : BitVec 8) :
     2#64 + ((l.zeroExtend 64) <<< 8) + ((f.zeroExtend 64) <<< 16) +
       ((c.zeroExtend 64) <<< 24) =
       (BitVec.ofNat 32 (2 + l.toNat * 2^8 + f.toNat * 2^16 + c.toNat * 2^24)).zeroExtend 64 := by
@@ -233,13 +233,12 @@ def HeaderWordCarry (s : MachineState) (level tree leaf : Nat) : Prop :=
     s.getMem 0x80000 = KeygenDomain.header 2 level leaf oldChain oldStep ∧
     (∀ i : Fin 3, s.getMem (wordAddress 0x80008 i.val) =
       (BitVec.ofNat 192 tree).extractLsb' (64*i.val) 64) ∧
-    s.getReg .x5 = 1 ∧ s.getReg .x12 = 0x80020 ∧ s.getReg .x31 = 7 ∧
-    s.getReg .x10 = 0x80000 ∧ s.getReg .x11 = 384 ∧ s.getReg .x20 = 46
+    s.getReg .x5 = 1 ∧ s.getReg .x12 = 0x80020 ∧ s.getReg .x31 = 7
 
 def HeaderReadyWord (s : MachineState) (level tree leaf next : Nat) : Prop :=
   next = 0 ∨ HeaderWordCarry s level tree leaf
 
-theorem partial_mem (s : MachineState) (src : s.getReg .x10 = 0x80000) (a : Word) :
+theorem partial_mem (s : MachineState) (a : Word) :
     (partialState s).getMem a =
       if a = 0x80000 then
         replaceByte (replaceByte (s.getMem 0x80000) 3 ((s.getReg .x6).truncate 8))
@@ -247,10 +246,10 @@ theorem partial_mem (s : MachineState) (src : s.getReg .x10 = 0x80000) (a : Word
       else s.getMem a := by
   by_cases h : a = 0x80000
   · subst a
-    simp [partialState, execInstrBr, signExtend12, MachineState.setByte, src,
+    simp [partialState, execInstrBr, signExtend12, MachineState.setByte,
       Expansion.mem_setMem, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       alignToDword, byteOffset]
-  · simp [partialState, execInstrBr, signExtend12, MachineState.setByte, src,
+  · simp [partialState, execInstrBr, signExtend12, MachineState.setByte,
       Expansion.mem_setMem, MachineState.getReg_setReg_eq, MachineState.getReg_setReg_ne,
       alignToDword, byteOffset]
     split_ifs <;> simp_all
@@ -262,23 +261,18 @@ theorem partial_word_carry (s : MachineState) (level tree leaf chain step : Nat)
     (chainReg : s.getReg .x6 = BitVec.ofNat 64 chain)
     (stepReg : s.getReg .x30 = BitVec.ofNat 64 step) :
     HeaderWordCarry (partialState s) level tree leaf := by
-  rcases carry with ⟨oldChain,oldStep,oldChainBound,oldStepBound,head,index,r5,r12,r31,r10,r11,r20⟩
-  refine ⟨chain,step,hc,hs,?_,?_,?_,?_,?_,?_,?_,?_⟩
-  · rw [partial_mem s r10, if_pos rfl, head, chainReg, stepReg]
+  rcases carry with ⟨oldChain,oldStep,oldChainBound,oldStepBound,head,index,r5,r12,r31⟩
+  refine ⟨chain,step,hc,hs,?_,?_,?_,?_,?_⟩
+  · rw [partial_mem, if_pos rfl, head, chainReg, stepReg]
     simpa only [BitVec.truncate_eq_setWidth,
       BitVec.setWidth_ofNat_of_le (by decide : 8 ≤ 64)] using
       (header_chain_step_replace level leaf oldChain oldStep chain step hl hf
         (by omega) (by omega) (by omega) (by omega))
   · intro i
-    rw [partial_mem s r10, if_neg (by fin_cases i <;> decide)]
+    rw [partial_mem, if_neg (by fin_cases i <;> decide)]
     exact index i
   · exact (partial_regs s).1.trans r5
   · exact (partial_regs s).2.2.2.1.trans r12
   · exact (partial_regs s).2.2.2.2.2.trans r31
-  · exact (partial_regs s).2.1.trans r10
-  · exact (partial_regs s).2.2.1.trans r11
-  · have same : (partialState s).getReg .x20 = s.getReg .x20 := by
-      simp [partialState, execInstrBr, MachineState.setByte, MachineState.getReg_setReg_ne]
-    exact same.trans r20
 
 end SigGolfCandidate.Hypertree.Verifying.Hoist
